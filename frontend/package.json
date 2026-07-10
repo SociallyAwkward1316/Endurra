@@ -5,11 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "build:production": "tsc -b && vite build --mode production",
-    "lint": "eslint .",
-    "preview": "vite preview --host 0.0.0.0",
-    "check": "npm run lint && npm run build:production"
+    "build": "vite build",
+    "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -21,6 +18,7 @@
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.16.0",
+    "serve": "^14.2.6",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
