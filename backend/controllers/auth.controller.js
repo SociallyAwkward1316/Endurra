@@ -47,14 +47,14 @@ export const loginController = async (req, res) => {
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
             secure: true,
-            sameSite: "none",
+            sameSite: "lax",
             maxAge: 60 * 60 * 1000
         })
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true,
-            sameSite: "none",
+            sameSite: "lax",
             maxAge: 30 * 24 * 60 * 60 * 1000
         })
 
@@ -78,7 +78,7 @@ export const refreshController = async (req, res) => {
                 res.cookie("accessToken", newAccessToken, {
                     httpOnly: true,
                     secure: true,
-                    sameSite: "none",
+                    sameSite: "lax",
                     maxAge: 60 * 60 * 1000
                 })
 
