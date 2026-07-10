@@ -10,7 +10,11 @@ import {
     Utensils
 } from "lucide-react"
 import Navbar from "../components/Navbar"
-import { BASEURL } from "../URL"
+import { BASEURL, apiFetch } from "../URL"
+
+type UserProfile = {
+    first_name: string
+}
 
 type NutritionProfile = {
     calories: number
@@ -29,9 +33,24 @@ type Workout = {
 
 function Dashboard () {
     const navigate = useNavigate()
+    const [user, setUser] = useState<UserProfile | null>(null)
     const [nutritionProfile, setNutritionProfile] = useState<NutritionProfile | null>(null)
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
+
+    const fetchUser = useCallback(async () => {
+        const response = await apiFetch(`${BASEURL}/profile`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" }
+        })
+
+        if (!response.ok) {
+            return
+        }
+
+        const data = await response.json()
+        setUser(data.user || null)
+    }, [])
 
     const fetchNutritionProfile = useCallback(async () => {
         const response = await fetch(`${BASEURL}/caltracker/getNutritionProfile`,
@@ -74,12 +93,15 @@ function Dashboard () {
 
     useEffect(() => {
         const loadDashboard = async () => {
-            await fetchNutritionProfile()
-            await fetchWorkouts()
+            await Promise.all([
+                fetchUser(),
+                fetchNutritionProfile(),
+                fetchWorkouts()
+            ])
         }
 
         loadDashboard()
-    }, [fetchNutritionProfile, fetchWorkouts])
+    }, [fetchNutritionProfile, fetchUser, fetchWorkouts])
 
     const motivationalQuotes = useMemo(() => [
         "The only way we give up is by not starting today.",
@@ -125,7 +147,7 @@ function Dashboard () {
                             </div>
 
                             <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-                                Welcome back, Alexis
+                                Welcome back, {user?.first_name?.trim() || "there"}
                             </h1>
 
                             <p className="mt-2 max-w-xl text-sm leading-6 text-[#94A3B8] md:text-base">
