@@ -11,7 +11,7 @@ import cors from "cors"
 import { corsOptions } from "./middleware/corsOptions.js"
 import tokenAuthentication from "./middleware/tokenAuthentication.js"
 
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT
 
 
 const app = express()
