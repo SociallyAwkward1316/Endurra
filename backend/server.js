@@ -11,7 +11,7 @@ import cors from "cors"
 import { corsOptions } from "./middleware/corsOptions.js"
 import tokenAuthentication from "./middleware/tokenAuthentication.js"
 
-const PORT = process.env.PORT
+const PORT = process.env.PORT || 3000
 
 
 const app = express()
@@ -26,8 +26,6 @@ app.use("/analytics", tokenAuthentication, AnalyticsRouter)
 app.use("/profile", tokenAuthentication, ProfileRouter)
 
 
-app.listen(PORT, () => {
-    console.log("Server Listening on Port " + PORT)
-})
+app.listen(PORT)
 
 app.use(errorhandler)
