@@ -1,0 +1,9 @@
+import express from "express";
+import { analyticsOverview, exerciseAnalytics } from "../controllers/analytics.controller.js";
+
+const router = express.Router();
+
+router.get("/overview", analyticsOverview);
+router.get("/exercise/:exerciseId", exerciseAnalytics);
+
+export default router;
