@@ -1,6 +1,6 @@
 
 export const corsOptions = {
-    origin: "http://localhost:5173",
+    origin: "https://endurra.app",
     credentials: true
 }
 
