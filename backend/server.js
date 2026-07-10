@@ -26,6 +26,8 @@ app.use("/analytics", tokenAuthentication, AnalyticsRouter)
 app.use("/profile", tokenAuthentication, ProfileRouter)
 
 
-app.listen(PORT)
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 app.use(errorhandler)
