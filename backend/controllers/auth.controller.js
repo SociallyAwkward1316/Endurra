@@ -46,14 +46,16 @@ export const loginController = async (req, res) => {
 
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
-            secure: false,
-            sameSite: "strict",
+            secure: true,
+            sameSite: "none",
+            maxAge: 60 * 60 * 1000
         })
 
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
-            secure: false,
-            sameSite: "strict",
+            secure: true,
+            sameSite: "none",
+            maxAge: 30 * 24 * 60 * 60 * 1000
         })
 
         res.status(200).json({message:"Login Success", tokens:{access:accessToken, refresh:refreshToken}})
@@ -75,8 +77,9 @@ export const refreshController = async (req, res) => {
                 const newAccessToken = jwt.sign(data, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "60m"})
                 res.cookie("accessToken", newAccessToken, {
                     httpOnly: true,
-                    secure: false,
-                    sameSite: "strict",
+                    secure: true,
+                    sameSite: "none",
+                    maxAge: 60 * 60 * 1000
                 })
 
                 res.status(200).json({message:"Token refreshed"})
