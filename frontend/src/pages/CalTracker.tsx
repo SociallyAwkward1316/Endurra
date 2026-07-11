@@ -45,10 +45,22 @@ type MacroCard = {
     unit: string
 }
 
+const toLocalDateKey = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+
+    return `${year}-${month}-${day}`
+}
+
+const fromLocalDateKey = (date: string) => {
+    const [year, month, day] = date.split("-").map(Number)
+
+    return new Date(year, month - 1, day)
+}
+
 function CalorieTracker() {
-    const [selectedDate, setSelectedDate] = useState(
-        new Date().toISOString().split("T")[0]
-    )
+    const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()))
     const [nutritionProfile, setNutritionProfile] = useState<NutritionTotals>({
         calories: 0,
         protein: 0,
@@ -81,7 +93,7 @@ function CalorieTracker() {
     }
 
     const formatDate = (date: string) => {
-        return new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+        return fromLocalDateKey(date).toLocaleDateString("en-US", {
             weekday: "long",
             month: "short",
             day: "numeric"
@@ -228,13 +240,11 @@ function CalorieTracker() {
     const calorieProgress = getProgress(totals.calories, nutritionProfile.calories)
 
     const changeDay = (amount: number) => {
-        const date = new Date(`${selectedDate}T00:00:00`)
+        const date = fromLocalDateKey(selectedDate)
 
         date.setDate(date.getDate() + amount)
 
-        setSelectedDate(
-            date.toISOString().split("T")[0]
-        )
+        setSelectedDate(toLocalDateKey(date))
     }
 
     const closeFoodModal = () => {
