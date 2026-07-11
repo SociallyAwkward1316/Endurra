@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
     ArrowLeft,
     Dumbbell,
@@ -57,7 +57,12 @@ function WorkoutDetail() {
     const [exerciseList, setExerciseList] = useState<Exercise[]>([])
     const [exerciseToDelete, setExerciseToDelete] = useState<WorkoutExercise | null>(null)
     const [creatingExercise, setCreatingExercise] = useState(false)
+    const [addingExercise, setAddingExercise] = useState(false)
+    const [addingSet, setAddingSet] = useState(false)
     const [exerciseCreateError, setExerciseCreateError] = useState("")
+    const creatingExerciseRef = useRef(false)
+    const addingExerciseRef = useRef(false)
+    const addingSetRef = useRef(false)
 
     const {workoutId} = useParams()
     const navigate = useNavigate()
@@ -156,39 +161,48 @@ function WorkoutDetail() {
     }
 
     const handleExerciseClick = async (exercise: Exercise) => {
-        if (!workout) {
+        if (!workout || addingExerciseRef.current) {
             return
         }
 
-        const response = await apiFetch(`${BASEURL}/workout/addExerciseToWorkout`,
-            {
-                method:"POST",
-                credentials:"include",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({
-                    workout,
-                    exercise
-                })
-            }
-        )
-
-        const data = await response.json()
-        const addedExercise = data.data?.[0] as AddedWorkoutExercise | undefined
-
-        await fetchWorkoutInfo()
+        addingExerciseRef.current = true
+        setAddingExercise(true)
         closeExerciseModal()
 
-        if (addedExercise?.id) {
-            setSelectedExercise(addedExercise.id)
-            setShowSetModal(true)
+        try {
+            const response = await apiFetch(`${BASEURL}/workout/addExerciseToWorkout`,
+                {
+                    method:"POST",
+                    credentials:"include",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify({
+                        workout,
+                        exercise
+                    })
+                }
+            )
+
+            const data = await response.json()
+            const addedExercise = data.data?.[0] as AddedWorkoutExercise | undefined
+
+            await fetchWorkoutInfo()
+
+            if (addedExercise?.id) {
+                setSelectedExercise(addedExercise.id)
+                setShowSetModal(true)
+            }
+        } finally {
+            addingExerciseRef.current = false
+            setAddingExercise(false)
         }
     }
 
     const handleCreateExercise = async () => {
-        if (!canCreateExercise || creatingExercise) {
+        if (!canCreateExercise || creatingExerciseRef.current) {
             return
         }
 
+        creatingExerciseRef.current = true
         setCreatingExercise(true)
         setExerciseCreateError("")
 
@@ -226,6 +240,7 @@ function WorkoutDetail() {
         } catch (error) {
             setExerciseCreateError(error instanceof Error ? error.message : "Could not create exercise")
         } finally {
+            creatingExerciseRef.current = false
             setCreatingExercise(false)
         }
     }
@@ -253,29 +268,42 @@ function WorkoutDetail() {
     }
 
     const handleSetSubmit = async () => {
-        if (!workout || !selectedExercise || !weight || !reps) {
+        if (!workout || !selectedExercise || !weight || !reps || addingSetRef.current) {
             return
         }
 
-        await apiFetch(`${BASEURL}/workout/addSetToExercise`,
-            {
-                method:"POST",
-                credentials:"include",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({
-                    workoutUserId:workout.user_id,
-                    exerciseId: selectedExercise,
-                    weight,
-                    reps
-                })
-            }
-        )
+        addingSetRef.current = true
+        setAddingSet(true)
+        setShowSetModal(false)
 
-        await fetchWorkoutInfo()
+        const exerciseId = selectedExercise
+        const submittedWeight = weight
+        const submittedReps = reps
+
         setWeight("")
         setReps("")
         setSelectedExercise(null)
-        setShowSetModal(false)
+
+        try {
+            await apiFetch(`${BASEURL}/workout/addSetToExercise`,
+                {
+                    method:"POST",
+                    credentials:"include",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify({
+                        workoutUserId:workout.user_id,
+                        exerciseId,
+                        weight:submittedWeight,
+                        reps:submittedReps
+                    })
+                }
+            )
+
+            await fetchWorkoutInfo()
+        } finally {
+            addingSetRef.current = false
+            setAddingSet(false)
+        }
     }
 
     const handleSetDelete = async () => {
@@ -596,7 +624,8 @@ function WorkoutDetail() {
                                         <button
                                             key={exercise.id}
                                             onClick={() => handleExerciseClick(exercise)}
-                                            className="flex w-full items-center gap-3 rounded-2xl border border-transparent bg-[#171B1F] p-4 text-left transition hover:border-[#2DDE85]"
+                                            disabled={addingExercise}
+                                            className="flex w-full items-center gap-3 rounded-2xl border border-transparent bg-[#171B1F] p-4 text-left transition hover:border-[#2DDE85] disabled:cursor-not-allowed disabled:opacity-60"
                                         >
                                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2DDE85]/10 text-[#2DDE85]">
                                                 <Dumbbell size={18} />
@@ -663,9 +692,10 @@ function WorkoutDetail() {
 
                                 <button
                                     onClick={handleSetSubmit}
-                                    className="rounded-xl bg-[#2DDE85] px-5 py-2 font-semibold text-black transition hover:bg-[#25C876]"
+                                    disabled={addingSet}
+                                    className="rounded-xl bg-[#2DDE85] px-5 py-2 font-semibold text-black transition hover:bg-[#25C876] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    Add Set
+                                    {addingSet ? "Adding..." : "Add Set"}
                                 </button>
                             </div>
                         </div>
