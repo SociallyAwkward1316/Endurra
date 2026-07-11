@@ -11,7 +11,7 @@ import {
     Target,
     Trophy
 } from "lucide-react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
 
@@ -102,16 +102,52 @@ const chartSx = {
 function Analytics() {
     const navigate = useNavigate()
     const { exerciseId } = useParams()
+    const [searchParams, setSearchParams] = useSearchParams()
     const [overview, setOverview] = useState<AnalyticsOverview | null>(null)
     const [exerciseAnalytics, setExerciseAnalytics] = useState<ExerciseAnalytics | null>(null)
     const [search, setSearch] = useState("")
     const [loading, setLoading] = useState(true)
     const [detailLoading, setDetailLoading] = useState(false)
 
+    const monthKey = getValidMonthKey(searchParams.get("month"))
+    const selectedMonth = useMemo(() => monthFromKey(monthKey), [monthKey])
+    const monthLabel = selectedMonth.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric"
+    })
+    const currentMonthKey = toMonthKey(new Date())
+    const isCurrentMonth = monthKey === currentMonthKey
+    const monthRange = useMemo(() => {
+        return {
+            start: selectedMonth.toISOString(),
+            end: new Date(
+                selectedMonth.getFullYear(),
+                selectedMonth.getMonth() + 1,
+                1
+            ).toISOString()
+        }
+    }, [selectedMonth])
+
+    const changeMonth = (amount: number) => {
+        const nextMonth = new Date(
+            selectedMonth.getFullYear(),
+            selectedMonth.getMonth() + amount,
+            1
+        )
+        const nextMonthKey = toMonthKey(nextMonth)
+
+        if (nextMonthKey > currentMonthKey) {
+            return
+        }
+
+        setSearchParams({ month: nextMonthKey })
+    }
+
     const fetchOverview = useCallback(async () => {
         setLoading(true)
 
-        const response = await apiFetch(`${BASEURL}/analytics/overview`, {
+        const query = new URLSearchParams(monthRange)
+        const response = await apiFetch(`${BASEURL}/analytics/overview?${query}`, {
             method: "GET",
             credentials: "include",
             headers: { "Content-Type": "application/json" }
@@ -120,12 +156,13 @@ function Analytics() {
         const data = await response.json()
         setOverview(data.data || null)
         setLoading(false)
-    }, [])
+    }, [monthRange])
 
     const fetchExerciseAnalytics = useCallback(async (selectedExerciseId: string) => {
         setDetailLoading(true)
 
-        const response = await apiFetch(`${BASEURL}/analytics/exercise/${selectedExerciseId}`, {
+        const query = new URLSearchParams(monthRange)
+        const response = await apiFetch(`${BASEURL}/analytics/exercise/${selectedExerciseId}?${query}`, {
             method: "GET",
             credentials: "include",
             headers: { "Content-Type": "application/json" }
@@ -141,7 +178,7 @@ function Analytics() {
         const data = await response.json()
         setExerciseAnalytics(data.data || null)
         setDetailLoading(false)
-    }, [])
+    }, [monthRange])
 
     useEffect(() => {
         const loadOverview = async () => {
@@ -221,7 +258,7 @@ function Analytics() {
 
                 <main className="mx-auto w-full max-w-7xl px-4 pb-6 pt-16 md:px-8 md:py-8">
                     <button
-                        onClick={() => navigate("/analytics")}
+                        onClick={() => navigate(`/analytics?month=${monthKey}`)}
                         className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-[#94A3B8] transition hover:text-white"
                     >
                         <ArrowLeft size={16} />
@@ -247,7 +284,7 @@ function Analytics() {
                                         </h1>
 
                                         <p className="mt-2 text-sm leading-6 text-[#94A3B8] md:text-base">
-                                            Tracking strength, set volume, and reps across your logged workouts.
+                                            Analytics for {monthLabel}, including strength, set volume, and reps.
                                         </p>
                                     </div>
 
@@ -452,21 +489,42 @@ function Analytics() {
                             </div>
 
                             <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-                                Analytics
+                                Analytics for {monthLabel}
                             </h1>
 
                             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#94A3B8] md:text-base">
-                                See what muscle groups you naturally focus on, then open any exercise to track progressive sets over time.
+                                Review the training you logged this month, then open any exercise for its monthly set and strength details.
                             </p>
                         </div>
 
-                        <button
-                            onClick={() => navigate("/workoutDash")}
-                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2DDE85] px-5 py-3 font-semibold text-black shadow-lg shadow-[#2DDE85]/20 transition hover:bg-[#25C876] sm:w-auto"
-                        >
-                            <Dumbbell size={18} />
-                            Log workout
-                        </button>
+                        <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+                            <div className="flex items-center justify-between rounded-2xl border border-[#313A45] bg-[#171B1F] p-1 sm:min-w-72">
+                                <button
+                                    onClick={() => changeMonth(-1)}
+                                    className="rounded-xl p-2.5 text-[#94A3B8] transition hover:bg-[#1E242B] hover:text-white"
+                                    aria-label="Previous month"
+                                >
+                                    <ArrowLeft size={18} />
+                                </button>
+                                <span className="px-3 text-sm font-semibold text-white">{monthLabel}</span>
+                                <button
+                                    onClick={() => changeMonth(1)}
+                                    disabled={isCurrentMonth}
+                                    className="rounded-xl p-2.5 text-[#94A3B8] transition hover:bg-[#1E242B] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                                    aria-label="Next month"
+                                >
+                                    <ArrowRight size={18} />
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => navigate("/workoutDash")}
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2DDE85] px-5 py-3 font-semibold text-black shadow-lg shadow-[#2DDE85]/20 transition hover:bg-[#25C876] sm:w-auto"
+                            >
+                                <Dumbbell size={18} />
+                                Log workout
+                            </button>
+                        </div>
                     </div>
                 </section>
 
@@ -553,7 +611,7 @@ function Analytics() {
                                 {filteredExercises.map((exercise) => (
                                     <button
                                         key={exercise.id}
-                                        onClick={() => navigate(`/analytics/exercise/${exercise.id}`)}
+                                        onClick={() => navigate(`/analytics/exercise/${exercise.id}?month=${monthKey}`)}
                                         className="group rounded-[22px] border border-[#2A3138] bg-[#171B1F] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#2DDE85] hover:shadow-xl hover:shadow-black/20"
                                     >
                                         <div className="flex items-center justify-between gap-4">
@@ -612,7 +670,7 @@ function Analytics() {
                             </div>
 
                             <button
-                                onClick={() => navigate(`/analytics/exercise/${topExercise.id}`)}
+                                onClick={() => navigate(`/analytics/exercise/${topExercise.id}?month=${monthKey}`)}
                                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#313A45] px-5 py-3 font-semibold text-[#CBD5E1] transition hover:border-[#2DDE85] hover:text-[#2DDE85]"
                             >
                                 Open progression
@@ -673,6 +731,29 @@ function formatNumber(value: number) {
     return new Intl.NumberFormat("en-US", {
         maximumFractionDigits: 0
     }).format(value)
+}
+
+function toMonthKey(date: Date) {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+
+    return `${year}-${month}`
+}
+
+function getValidMonthKey(month: string | null) {
+    const currentMonth = toMonthKey(new Date())
+
+    if (!month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month > currentMonth) {
+        return currentMonth
+    }
+
+    return month
+}
+
+function monthFromKey(month: string) {
+    const [year, monthNumber] = month.split("-").map(Number)
+
+    return new Date(year, monthNumber - 1, 1)
 }
 
 export default Analytics

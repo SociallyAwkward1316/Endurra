@@ -73,7 +73,7 @@ const inferMuscleGroup = (exercise = {}) => {
     return matchingPattern?.group || "Other";
 };
 
-const getWorkoutAnalyticsRows = async (userId) => {
+const getWorkoutAnalyticsRows = async (userId, start, end) => {
     return supabase
         .from("Workouts")
         .select(`
@@ -93,6 +93,8 @@ const getWorkoutAnalyticsRows = async (userId) => {
             )
         `)
         .eq("user_id", userId)
+        .gte("created_at", start)
+        .lt("created_at", end)
         .order("created_at", { ascending: true });
 };
 
@@ -199,8 +201,8 @@ const buildAnalytics = (workouts = []) => {
     };
 };
 
-export const getUserAnalyticsOverview = async (userId) => {
-    const workouts = await getWorkoutAnalyticsRows(userId);
+export const getUserAnalyticsOverview = async (userId, start, end) => {
+    const workouts = await getWorkoutAnalyticsRows(userId, start, end);
 
     if (workouts.error) {
         return workouts;
@@ -212,8 +214,8 @@ export const getUserAnalyticsOverview = async (userId) => {
     };
 };
 
-export const getUserExerciseAnalytics = async (userId, exerciseId) => {
-    const workouts = await getWorkoutAnalyticsRows(userId);
+export const getUserExerciseAnalytics = async (userId, exerciseId, start, end) => {
+    const workouts = await getWorkoutAnalyticsRows(userId, start, end);
 
     if (workouts.error) {
         return workouts;
