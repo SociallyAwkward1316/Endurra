@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import Heropic from "../assets/SignUpAssets/Login:SignupHero.png"
 import { BASEURL } from "../URL"
+import { useAuthenticatedRedirect } from "../hooks/useAuthenticatedRedirect"
 
 function Login () {
     const [email, setEmail] = useState("")
@@ -13,6 +14,7 @@ function Login () {
     const [loading, setLoading] = useState(false)
 
     const navigate = useNavigate()
+    useAuthenticatedRedirect()
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault()

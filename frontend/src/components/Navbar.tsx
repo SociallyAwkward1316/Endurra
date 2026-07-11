@@ -5,6 +5,7 @@ import {
     ChevronRight,
     Dumbbell,
     LayoutDashboard,
+    LogOut,
     Menu,
     User,
     X
@@ -21,6 +22,7 @@ type NavItem = {
 
 function Navbar() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [loggingOut, setLoggingOut] = useState(false)
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -83,6 +85,25 @@ function Navbar() {
         }
 
         return location.pathname === path
+    }
+
+    const handleLogout = async () => {
+        if (loggingOut) {
+            return
+        }
+
+        setLoggingOut(true)
+
+        try {
+            await fetch(`${BASEURL}/auth/logout`, {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" }
+            })
+        } finally {
+            setSidebarOpen(false)
+            navigate("/", { replace: true })
+        }
     }
 
     return (
@@ -198,6 +219,23 @@ function Navbar() {
                             <span>
                                 <span className="block text-sm font-medium">Profile</span>
                                 <span className="text-[11px] text-[#4B5563]">Account settings</span>
+                            </span>
+                        </button>
+
+                        <button
+                            onClick={handleLogout}
+                            disabled={loggingOut}
+                            className="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[#8D98A6] transition hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280]">
+                                <LogOut size={18} />
+                            </span>
+
+                            <span>
+                                <span className="block text-sm font-medium">
+                                    {loggingOut ? "Logging out..." : "Log out"}
+                                </span>
+                                <span className="text-[11px] text-[#4B5563]">End this session</span>
                             </span>
                         </button>
                     </div>

@@ -4,6 +4,7 @@ import { CheckCircle2, Eye, EyeOff, Lock, Mail, User } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import Heropic from "../assets/SignUpAssets/Login:SignupHero.png"
 import { BASEURL } from "../URL"
+import { useAuthenticatedRedirect } from "../hooks/useAuthenticatedRedirect"
 
 type PasswordRule = {
     label: string
@@ -23,6 +24,7 @@ function Signup () {
     const [loading, setLoading] = useState(false)
 
     const navigate = useNavigate()
+    useAuthenticatedRedirect()
 
     const passwordRules: PasswordRule[] = useMemo(() => [
         {
