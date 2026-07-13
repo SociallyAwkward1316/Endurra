@@ -1,5 +1,5 @@
 import { deleteFoodEntry, getFood, getLog, getNutritionProfile, postFoodEntry, postFoodtoDb, postNutritionProfile, postUserDailyLog } from "../services/caltracker.services.js"
-import { searchFatSecretFoods } from "../utils/fatsecret.utils.js"
+import { findFatSecretFoodByBarcode, searchFatSecretFoods } from "../utils/fatsecret.utils.js"
 
 
 export const createNutritionProfile = async (req, res) => {
@@ -300,6 +300,34 @@ export const searchForFood = async (req, res) => {
         )
     })
 
+}
+
+export const searchFoodByBarcode = async (req, res) => {
+    const barcode = String(req.query.barcode || "").replace(/\D/g, "")
+
+    if (barcode.length < 8 || barcode.length > 13) {
+        return res.status(400).json({message:"Scan a valid UPC or EAN barcode"})
+    }
+
+    try {
+        const food = await findFatSecretFoodByBarcode(barcode)
+
+        if (!food) {
+            return res.status(404).json({message:"No food was found for that barcode"})
+        }
+
+        const savedFood = await postFoodtoDb([food])
+
+        if (savedFood.error) {
+            console.error("Could not save barcode food", savedFood.error)
+        }
+
+        return res.status(200).json({food:savedFood.data?.[0] || food})
+    } catch (error) {
+        console.error("Barcode lookup failed", error.message)
+
+        return res.status(502).json({message:"Barcode lookup is currently unavailable"})
+    }
 }
 
 export const addFoodToLog = async (req, res) => {

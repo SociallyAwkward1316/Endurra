@@ -1,9 +1,9 @@
 import "dotenv/config"
-let cachedToken = null
-let tokenExpiresAt = 0
+const cachedTokens = new Map()
 
 const FATSECRET_TOKEN_URL = "https://oauth.fatsecret.com/connect/token"
 const FATSECRET_API_URL = "https://platform.fatsecret.com/rest/server.api"
+const FATSECRET_BARCODE_API_URL = "https://platform.fatsecret.com/rest/food/barcode/find-by-id/v2"
 
 const getFatSecretCredentials = () => {
     const clientId =
@@ -97,11 +97,39 @@ const normalizeFatSecretFood = (food) => {
     }
 }
 
-const getFatSecretAccessToken = async () => {
-    const now = Date.now()
+const normalizeDetailedFatSecretFood = (food) => {
+    const rawServings = food?.servings?.serving
+    const servings = Array.isArray(rawServings)
+        ? rawServings
+        : rawServings
+            ? [rawServings]
+            : []
+    const serving = servings.find(item => Number(item.is_default) === 1) || servings[0]
+    const fatSecretId = Number(food?.food_id)
 
-    if (cachedToken && tokenExpiresAt > now) {
-        return cachedToken
+    if (!serving || !Number.isFinite(fatSecretId)) {
+        return null
+    }
+
+    return {
+        fdc_id: -Math.abs(fatSecretId),
+        name: food.food_name,
+        brand_name: food.brand_name || null,
+        serving_size: parseNumber(serving.metric_serving_amount) ?? parseNumber(serving.number_of_units) ?? 1,
+        serving_unit: normalizeServingUnit(serving.metric_serving_unit || serving.measurement_description || "serving"),
+        calories: parseNumber(serving.calories),
+        protein: parseNumber(serving.protein),
+        carbs: parseNumber(serving.carbohydrate),
+        fats: parseNumber(serving.fat)
+    }
+}
+
+const getFatSecretAccessToken = async (scope = "basic") => {
+    const now = Date.now()
+    const cachedToken = cachedTokens.get(scope)
+
+    if (cachedToken && cachedToken.expiresAt > now) {
+        return cachedToken.value
     }
 
     const { clientId, clientSecret } = getFatSecretCredentials()
@@ -113,7 +141,7 @@ const getFatSecretAccessToken = async () => {
     const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
     const body = new URLSearchParams({
         grant_type: "client_credentials",
-        scope: "basic"
+        scope
     })
 
     const response = await fetch(FATSECRET_TOKEN_URL,
@@ -134,10 +162,12 @@ const getFatSecretAccessToken = async () => {
         throw new Error("Could not authenticate with FatSecret")
     }
 
-    cachedToken = data.access_token
-    tokenExpiresAt = now + ((Number(data.expires_in) || 86400) - 60) * 1000
+    cachedTokens.set(scope, {
+        value:data.access_token,
+        expiresAt:now + ((Number(data.expires_in) || 86400) - 60) * 1000
+    })
 
-    return cachedToken
+    return data.access_token
 }
 
 export const searchFatSecretFoods = async (searchExpression) => {
@@ -184,4 +214,39 @@ export const searchFatSecretFoods = async (searchExpression) => {
             food.carbs != null &&
             food.fats != null
         )
+}
+
+export const findFatSecretFoodByBarcode = async (barcode) => {
+    const digits = String(barcode).replace(/\D/g, "")
+
+    if (digits.length < 8 || digits.length > 13) {
+        throw new Error("Invalid barcode")
+    }
+
+    const gtin = digits.padStart(13, "0")
+    const token = await getFatSecretAccessToken("premier barcode")
+    const params = new URLSearchParams({
+        barcode:gtin,
+        format:"json",
+        flag_default_serving:"true"
+    })
+    const response = await fetch(`${FATSECRET_BARCODE_API_URL}?${params}`, {
+        method:"GET",
+        headers:{
+            "Authorization":`Bearer ${token}`,
+            "Accept":"application/json"
+        }
+    })
+    const data = await response.json()
+
+    if (Number(data.error?.code) === 211) {
+        return null
+    }
+
+    if (!response.ok || data.error) {
+        console.error("FatSecret barcode lookup failed", data)
+        throw new Error("Could not look up barcode")
+    }
+
+    return normalizeDetailedFatSecretFood(data.food || data)
 }

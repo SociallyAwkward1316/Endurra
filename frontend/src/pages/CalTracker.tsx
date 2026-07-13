@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
     Plus,
+    ScanLine,
     Search,
     Trash2,
     X
 } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
+
+const BarcodeScanner = lazy(() => import("../components/BarcodeScanner"))
 
 type NutritionTotals = {
     calories: number
@@ -76,6 +79,9 @@ function CalorieTracker() {
     const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null)
     const [foodAddError, setFoodAddError] = useState("")
     const [addingFood, setAddingFood] = useState(false)
+    const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
+    const [barcodeLookupError, setBarcodeLookupError] = useState("")
+    const [lookingUpBarcode, setLookingUpBarcode] = useState(false)
 
     const formatServing = (food?: Food) => {
         if (!food) {
@@ -249,17 +255,54 @@ function CalorieTracker() {
 
     const closeFoodModal = () => {
         setShowFoodModal(false)
+        setShowBarcodeScanner(false)
+        setLookingUpBarcode(false)
         setSelectedFood(null)
         setServings("1")
         setFoodAddError("")
+        setBarcodeLookupError("")
     }
 
     const openFoodModal = () => {
         setShowFoodModal(true)
+        setShowBarcodeScanner(false)
+        setLookingUpBarcode(false)
         setSelectedFood(null)
         setServings("1")
         setFoodAddError("")
+        setBarcodeLookupError("")
     }
+
+    const handleBarcodeDetected = useCallback(async (barcode: string) => {
+        setShowBarcodeScanner(false)
+        setLookingUpBarcode(true)
+        setBarcodeLookupError("")
+
+        try {
+            const response = await apiFetch(
+                `${BASEURL}/caltracker/foodsearch/barcode?barcode=${encodeURIComponent(barcode)}`,
+                {
+                    method:"GET",
+                    credentials:"include",
+                    headers:{"Content-Type":"application/json"}
+                }
+            )
+            const data = await response.json()
+
+            if (!response.ok || !data.food) {
+                setBarcodeLookupError(data.message || "No food was found for that barcode.")
+
+                return
+            }
+
+            setFoodResults([data.food])
+            setSelectedFood(data.food)
+        } catch {
+            setBarcodeLookupError("Could not look up that barcode. Please try again.")
+        } finally {
+            setLookingUpBarcode(false)
+        }
+    }, [])
 
     const handleFoodClick = (food: Food) => {
         setSelectedFood(food)
@@ -602,23 +645,62 @@ function CalorieTracker() {
                         </div>
 
                         <div className="p-6">
-                            {!selectedFood && (
-                                <div className="relative">
-                                    <Search
-                                        size={18}
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
-                                    />
-                                    <input
-                                        value={foodSearch}
-                                        onChange={(e) => setFoodSearch(e.target.value)}
-                                        placeholder="Search foods..."
-                                        className="w-full rounded-2xl border border-[#313A45] bg-[#171B1F] py-3 pl-11 pr-4 text-white outline-none transition placeholder:text-[#6B7280] focus:border-[#2DDE85]"
-                                    />
+                            {!selectedFood && !showBarcodeScanner && (
+                                <div className="space-y-3">
+                                    <div className="relative">
+                                        <Search
+                                            size={18}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6B7280]"
+                                        />
+                                        <input
+                                            value={foodSearch}
+                                            onChange={(e) => {
+                                                setFoodSearch(e.target.value)
+                                                setBarcodeLookupError("")
+                                            }}
+                                            placeholder="Search foods..."
+                                            className="w-full rounded-2xl border border-[#313A45] bg-[#171B1F] py-3 pl-11 pr-4 text-white outline-none transition placeholder:text-[#6B7280] focus:border-[#2DDE85]"
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setBarcodeLookupError("")
+                                            setShowBarcodeScanner(true)
+                                        }}
+                                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#2DDE85]/35 bg-[#2DDE85]/10 px-4 py-3 font-semibold text-[#2DDE85] transition hover:border-[#2DDE85] hover:bg-[#2DDE85]/15 md:hidden"
+                                    >
+                                        <ScanLine size={19} />
+                                        Scan barcode
+                                    </button>
+
+                                    {barcodeLookupError && (
+                                        <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300 md:hidden">
+                                            {barcodeLookupError}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             <div className="mt-5 max-h-[430px] overflow-y-auto pr-1">
-                                {selectedFood ? (
+                                {showBarcodeScanner ? (
+                                    <Suspense fallback={(
+                                        <div className="flex min-h-80 items-center justify-center text-sm text-[#94A3B8]">
+                                            Starting camera...
+                                        </div>
+                                    )}>
+                                        <BarcodeScanner
+                                            onDetected={handleBarcodeDetected}
+                                            onClose={() => setShowBarcodeScanner(false)}
+                                        />
+                                    </Suspense>
+                                ) : lookingUpBarcode ? (
+                                    <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-[#2A3138] bg-[#171B1F] px-6 text-center">
+                                        <ScanLine size={30} className="mb-4 text-[#2DDE85]" />
+                                        <p className="font-semibold text-white">Looking up barcode...</p>
+                                        <p className="mt-2 text-sm text-[#6B7280]">Searching FatSecret for nutrition information.</p>
+                                    </div>
+                                ) : selectedFood ? (
                                     <div className="space-y-5">
                                         <button
                                             onClick={() => setSelectedFood(null)}

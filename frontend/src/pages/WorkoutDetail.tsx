@@ -43,6 +43,102 @@ type Workout = {
     WorkoutExercises?: WorkoutExercise[]
 }
 
+type WheelPickerProps = {
+    label: string
+    unit: string
+    values: number[]
+    value: number
+    onChange: (value: number) => void
+}
+
+const WEIGHT_OPTIONS = Array.from({ length: 401 }, (_, index) => index * 2.5)
+const REP_OPTIONS = Array.from({ length: 100 }, (_, index) => index + 1)
+const WHEEL_ROW_HEIGHT = 48
+
+function WheelPicker({ label, unit, values, value, onChange }: WheelPickerProps) {
+    const wheelRef = useRef<HTMLDivElement>(null)
+    const initialValueRef = useRef(value)
+
+    useEffect(() => {
+        const selectedIndex = Math.max(values.indexOf(initialValueRef.current), 0)
+
+        wheelRef.current?.scrollTo({
+            top:selectedIndex * WHEEL_ROW_HEIGHT,
+            behavior:"auto"
+        })
+    }, [values])
+
+    const handleScroll = () => {
+        if (!wheelRef.current) {
+            return
+        }
+
+        const index = Math.min(
+            Math.max(Math.round(wheelRef.current.scrollTop / WHEEL_ROW_HEIGHT), 0),
+            values.length - 1
+        )
+
+        if (values[index] !== value) {
+            onChange(values[index])
+        }
+    }
+
+    const selectValue = (selectedValue: number) => {
+        const index = values.indexOf(selectedValue)
+
+        wheelRef.current?.scrollTo({
+            top:index * WHEEL_ROW_HEIGHT,
+            behavior:"smooth"
+        })
+        onChange(selectedValue)
+    }
+
+    return (
+        <div>
+            <div className="mb-2 flex items-end justify-between px-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#6B7280]">{label}</p>
+                <p className="text-xs font-medium text-[#2DDE85]">{unit}</p>
+            </div>
+
+            <div className="relative h-60 overflow-hidden rounded-2xl border border-[#313A45] bg-[#14181D]">
+                <div className="pointer-events-none absolute inset-x-2 top-24 z-10 h-12 rounded-xl border-y border-[#2DDE85]/60 bg-[#2DDE85]/8 shadow-[inset_0_1px_0_rgba(45,222,133,0.1)]" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-20 bg-gradient-to-b from-[#14181D] via-[#14181D]/90 to-transparent" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-20 bg-gradient-to-t from-[#14181D] via-[#14181D]/90 to-transparent" />
+
+                <div
+                    ref={wheelRef}
+                    onScroll={handleScroll}
+                    role="listbox"
+                    aria-label={label}
+                    className="wheel-picker h-full snap-y snap-mandatory overflow-y-auto py-24"
+                    style={{ WebkitOverflowScrolling:"touch", overscrollBehavior:"contain" }}
+                >
+                    {values.map((option) => {
+                        const selected = option === value
+
+                        return (
+                            <button
+                                key={option}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() => selectValue(option)}
+                                className={`flex h-12 w-full snap-center items-center justify-center text-center transition ${
+                                    selected
+                                        ? "text-2xl font-bold text-white"
+                                        : "text-lg font-medium text-[#65717E]"
+                                }`}
+                            >
+                                {Number.isInteger(option) ? option : option.toFixed(1)}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function WorkoutDetail() {
     const [showExerciseModal, setShowExerciseModal] = useState(false)
     const [showSetModal, setShowSetModal] = useState(false)
@@ -160,6 +256,22 @@ function WorkoutDetail() {
         setExerciseCreateError("")
     }
 
+    const openSetModal = (exerciseId: number, previousSet?: SetEntry) => {
+        const previousWeight = Number(previousSet?.weight)
+        const previousReps = Number(previousSet?.reps)
+        const startingWeight = Number.isFinite(previousWeight)
+            ? Math.min(Math.max(Math.round(previousWeight / 2.5) * 2.5, 0), 1000)
+            : 0
+        const startingReps = Number.isFinite(previousReps)
+            ? Math.min(Math.max(Math.round(previousReps), 1), 100)
+            : 8
+
+        setSelectedExercise(exerciseId)
+        setWeight(String(startingWeight))
+        setReps(String(startingReps))
+        setShowSetModal(true)
+    }
+
     const handleExerciseClick = async (exercise: Exercise) => {
         if (!workout || addingExerciseRef.current) {
             return
@@ -188,8 +300,7 @@ function WorkoutDetail() {
             await fetchWorkoutInfo()
 
             if (addedExercise?.id) {
-                setSelectedExercise(addedExercise.id)
-                setShowSetModal(true)
+                openSetModal(addedExercise.id)
             }
         } finally {
             addingExerciseRef.current = false
@@ -433,8 +544,8 @@ function WorkoutDetail() {
                                     <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:min-w-72">
                                         <button
                                             onClick={() => {
-                                                setSelectedExercise(exercise.id)
-                                                setShowSetModal(true)
+                                                const sets = exercise.Sets || []
+                                                openSetModal(exercise.id, sets[sets.length - 1])
                                             }}
                                             className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#2DDE85]/40 bg-[#2DDE85]/10 px-4 py-2.5 text-sm font-semibold text-[#2DDE85] transition hover:border-[#2DDE85] hover:bg-[#2DDE85]/15"
                                         >
@@ -645,7 +756,7 @@ function WorkoutDetail() {
 
             {showSetModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-                    <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-[#313A45] bg-[#1E242B] shadow-2xl shadow-black/40">
+                    <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-[#313A45] bg-[#1E242B] shadow-2xl shadow-black/40">
                         <div className="flex items-start justify-between border-b border-[#2A3138] px-6 py-5">
                             <div>
                                 <h2 className="text-2xl font-bold text-white">
@@ -666,6 +777,24 @@ function WorkoutDetail() {
                         </div>
 
                         <div className="space-y-4 p-6">
+                            <div className="grid grid-cols-2 gap-3 md:hidden">
+                                <WheelPicker
+                                    label="Weight"
+                                    unit="lb"
+                                    values={WEIGHT_OPTIONS}
+                                    value={Number(weight) || 0}
+                                    onChange={(value) => setWeight(String(value))}
+                                />
+                                <WheelPicker
+                                    label="Reps"
+                                    unit="reps"
+                                    values={REP_OPTIONS}
+                                    value={Number(reps) || 1}
+                                    onChange={(value) => setReps(String(value))}
+                                />
+                            </div>
+
+                            <div className="hidden grid-cols-2 gap-3 md:grid">
                             <input
                                 type="number"
                                 placeholder="Weight"
@@ -681,6 +810,7 @@ function WorkoutDetail() {
                                 onChange={(e) => setReps(e.target.value)}
                                 className="w-full rounded-2xl border border-[#313A45] bg-[#171B1F] px-4 py-3 text-white outline-none transition placeholder:text-[#6B7280] focus:border-[#2DDE85]"
                             />
+                            </div>
 
                             <div className="flex justify-end gap-3 pt-2">
                                 <button
