@@ -26,6 +26,15 @@ export const getLog = async (userId, date) => {
     return log
 }
 
+export const getLogById = async (userId, logId) => {
+    return supabase
+        .from("DayFoodLogs")
+        .select("id, user_id, log_date")
+        .eq("id", logId)
+        .eq("user_id", userId)
+        .maybeSingle()
+}
+
 export const postUserDailyLog = async (userId, date) => {
     const userLog = await supabase.from("DayFoodLogs").insert({user_id: userId, log_date: date}).select()
     return userLog
@@ -117,4 +126,37 @@ export const deleteFoodEntry = async (entryId) => {
     const food = await supabase.from("FoodEntries").delete().eq("id", entryId).select()
 
     return food
+}
+
+export const getSavedFoods = async (userId) => {
+    return supabase
+        .from("SavedFoods")
+        .select("food_id, Food(*)")
+        .eq("user_id", userId)
+        .order("food_id", {ascending:false})
+}
+
+export const getSavedFood = async (userId, foodId) => {
+    return supabase
+        .from("SavedFoods")
+        .select("food_id")
+        .eq("user_id", userId)
+        .eq("food_id", foodId)
+        .maybeSingle()
+}
+
+export const postSavedFood = async (userId, foodId) => {
+    return supabase
+        .from("SavedFoods")
+        .insert({user_id:userId, food_id:foodId})
+        .select("food_id, Food(*)")
+        .single()
+}
+
+export const deleteSavedFood = async (userId, foodId) => {
+    return supabase
+        .from("SavedFoods")
+        .delete()
+        .eq("user_id", userId)
+        .eq("food_id", foodId)
 }

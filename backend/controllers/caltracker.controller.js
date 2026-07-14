@@ -1,5 +1,6 @@
-import { deleteFoodEntry, getFood, getLog, getNutritionProfile, postFoodEntry, postFoodtoDb, postNutritionProfile, postUserDailyLog } from "../services/caltracker.services.js"
+import { deleteFoodEntry, deleteSavedFood, getFood, getLog, getLogById, getNutritionProfile, getSavedFood, getSavedFoods, postFoodEntry, postFoodtoDb, postNutritionProfile, postSavedFood, postUserDailyLog } from "../services/caltracker.services.js"
 import { findFatSecretFoodByBarcode, searchFatSecretFoods } from "../utils/fatsecret.utils.js"
+import { updateUserStreak } from "../services/streak.services.js"
 
 
 export const createNutritionProfile = async (req, res) => {
@@ -254,6 +255,23 @@ const prepareFoodForDb = (food) => {
     }
 }
 
+const resolveFoodId = async (foodId, food) => {
+    if (foodId) {
+        return {foodId, error:null}
+    }
+
+    if (!food?.name) {
+        return {foodId:null, error:new Error("Missing food")}
+    }
+
+    const savedFood = await postFoodtoDb([prepareFoodForDb(food)])
+
+    return {
+        foodId:savedFood.data?.[0]?.id || null,
+        error:savedFood.error || null
+    }
+}
+
 export const searchForFood = async (req, res) => {
     const foodSearch = req.query.food
 
@@ -335,6 +353,11 @@ export const addFoodToLog = async (req, res) => {
     let foodId = req.body.foodId
     const food = req.body.food
     const servings = Number(req.body.servings || 1)
+    const dailyLog = await getLogById(req.user.userId, logId)
+
+    if (dailyLog.error || !dailyLog.data) {
+        return res.status(404).json({message:"Food log not found"})
+    }
 
     if (!foodId && food?.name) {
         const savedFood = await postFoodtoDb([prepareFoodForDb(food)])
@@ -371,8 +394,71 @@ export const addFoodToLog = async (req, res) => {
         return res.status(500).json({message:"Could not add food to log"})
     }
 
-    return res.status(200).json({message:"Food Added"})
+    const streak = await updateUserStreak(req.user.userId, "calorie", dailyLog.data.log_date)
 
+    if (streak.error) {
+        console.error("Could not update calorie streak", streak.error.message)
+    }
+
+    return res.status(200).json({message:"Food Added", streak:streak.data || null})
+
+}
+
+export const fetchSavedFoods = async (req, res) => {
+    const savedFoods = await getSavedFoods(req.user.userId)
+
+    if (savedFoods.error) {
+        return res.status(500).json({message:"Could not load saved foods"})
+    }
+
+    const foods = (savedFoods.data || [])
+        .map(savedFood => savedFood.Food)
+        .filter(Boolean)
+
+    return res.status(200).json({foods})
+}
+
+export const saveFood = async (req, res) => {
+    const userId = req.user.userId
+    const resolved = await resolveFoodId(req.body.foodId, req.body.food)
+
+    if (resolved.error || !resolved.foodId) {
+        return res.status(400).json({message:"Could not resolve food to save"})
+    }
+
+    const existing = await getSavedFood(userId, resolved.foodId)
+
+    if (existing.error) {
+        return res.status(500).json({message:"Could not check saved food"})
+    }
+
+    if (existing.data) {
+        return res.status(200).json({food:req.body.food, alreadySaved:true})
+    }
+
+    const savedFood = await postSavedFood(userId, resolved.foodId)
+
+    if (savedFood.error) {
+        return res.status(500).json({message:"Could not save food"})
+    }
+
+    return res.status(201).json({food:savedFood.data?.Food || req.body.food})
+}
+
+export const removeSavedFood = async (req, res) => {
+    const foodId = Number(req.params.foodId)
+
+    if (!Number.isFinite(foodId)) {
+        return res.status(400).json({message:"Invalid food"})
+    }
+
+    const deleted = await deleteSavedFood(req.user.userId, foodId)
+
+    if (deleted.error) {
+        return res.status(500).json({message:"Could not remove saved food"})
+    }
+
+    return res.status(200).json({message:"Saved food removed"})
 }
 
 export const removeFoodFromLog = async (req, res) => {

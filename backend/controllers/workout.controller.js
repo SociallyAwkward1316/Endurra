@@ -1,5 +1,6 @@
 import "dotenv/config"
 import { getAllUserWorkouts, getUserWorkoutDetail, postSet, postUserWorkout, deleteSet, getExerciseList, postExerciseToWorkout, deleteExerciseFromWorkout, deleteUserWorkout, createUserExercise} from "../services/workout.services.js"
+import { updateUserStreak } from "../services/streak.services.js"
 
 export const getUserWorkouts = async (req, res) => {
     const userId = req.user.userId
@@ -16,6 +17,9 @@ export const getUserWorkouts = async (req, res) => {
 export const createUserWorkout = async (req,res) => {
     const userId = req.user.userId
     const workoutName = req.body.workoutName
+    const activityDate = /^\d{4}-\d{2}-\d{2}$/.test(req.body.activityDate || "")
+        ? req.body.activityDate
+        : new Date().toISOString().split("T")[0]
 
     if (!workoutName) {
         return res.status(400).json({message:"Missing Workout Name"})
@@ -23,7 +27,17 @@ export const createUserWorkout = async (req,res) => {
 
     const workout = await postUserWorkout(workoutName, userId)
 
-    return res.status(200).json({data:workout.data})
+    if (workout.error) {
+        return res.status(500).json({message:workout.error.message})
+    }
+
+    const streak = await updateUserStreak(userId, "workout", activityDate)
+
+    if (streak.error) {
+        console.error("Could not update workout streak", streak.error.message)
+    }
+
+    return res.status(200).json({data:workout.data, streak:streak.data || null})
 
 }
 

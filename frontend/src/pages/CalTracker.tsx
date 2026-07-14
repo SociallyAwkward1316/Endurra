@@ -1,16 +1,22 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react"
 import {
+    Bookmark,
+    BookmarkCheck,
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    Flame,
     Plus,
     ScanLine,
     Search,
     Trash2,
+    Trophy,
     X
 } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
+import { fetchUserStreak, getLocalDateKey } from "../streaks"
+import type { UserStreak } from "../streaks"
 
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner"))
 
@@ -48,13 +54,7 @@ type MacroCard = {
     unit: string
 }
 
-const toLocalDateKey = (date: Date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, "0")
-    const day = String(date.getDate()).padStart(2, "0")
-
-    return `${year}-${month}-${day}`
-}
+type FoodTab = "search" | "saved"
 
 const fromLocalDateKey = (date: string) => {
     const [year, month, day] = date.split("-").map(Number)
@@ -62,8 +62,10 @@ const fromLocalDateKey = (date: string) => {
     return new Date(year, month - 1, day)
 }
 
+const getFoodKey = (food: Food) => String(food.fdc_id ?? food.id ?? `${food.brand_name || ""}:${food.name}`)
+
 function CalorieTracker() {
-    const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()))
+    const [selectedDate, setSelectedDate] = useState(() => getLocalDateKey())
     const [nutritionProfile, setNutritionProfile] = useState<NutritionTotals>({
         calories: 0,
         protein: 0,
@@ -82,6 +84,12 @@ function CalorieTracker() {
     const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
     const [barcodeLookupError, setBarcodeLookupError] = useState("")
     const [lookingUpBarcode, setLookingUpBarcode] = useState(false)
+    const [foodTab, setFoodTab] = useState<FoodTab>("search")
+    const [savedFoods, setSavedFoods] = useState<Food[]>([])
+    const [savingFoodKey, setSavingFoodKey] = useState<string | null>(null)
+    const [savedFoodsLoading, setSavedFoodsLoading] = useState(false)
+    const [savedFoodError, setSavedFoodError] = useState("")
+    const [streak, setStreak] = useState<UserStreak | null>(null)
 
     const formatServing = (food?: Food) => {
         if (!food) {
@@ -132,6 +140,32 @@ function CalorieTracker() {
         }
     }, [])
 
+    const fetchSavedFoods = useCallback(async () => {
+        setSavedFoodsLoading(true)
+
+        try {
+            const response = await apiFetch(`${BASEURL}/caltracker/saved-foods`, {
+                method:"GET",
+                credentials:"include",
+                headers:{"Content-Type":"application/json"}
+            })
+            const data = await response.json()
+
+            if (!response.ok) {
+                setSavedFoodError(data.message || "Could not load saved foods.")
+
+                return
+            }
+
+            setSavedFoods(data.foods || [])
+            setSavedFoodError("")
+        } catch {
+            setSavedFoodError("Could not load saved foods.")
+        } finally {
+            setSavedFoodsLoading(false)
+        }
+    }, [])
+
     useEffect(() => {
         const fetchPageData = async () => {
             const profileResponse = await apiFetch(`${BASEURL}/caltracker/getNutritionProfile`,
@@ -165,6 +199,14 @@ function CalorieTracker() {
         fetchPageData()
         loadLog()
     }, [selectedDate, fetchLog])
+
+    useEffect(() => {
+        const loadStreak = async () => {
+            setStreak(await fetchUserStreak())
+        }
+
+        loadStreak()
+    }, [])
 
     useEffect(() => {
         const timeout = setTimeout(async () => {
@@ -250,7 +292,7 @@ function CalorieTracker() {
 
         date.setDate(date.getDate() + amount)
 
-        setSelectedDate(toLocalDateKey(date))
+        setSelectedDate(getLocalDateKey(date))
     }
 
     const closeFoodModal = () => {
@@ -271,6 +313,9 @@ function CalorieTracker() {
         setServings("1")
         setFoodAddError("")
         setBarcodeLookupError("")
+        setSavedFoodError("")
+        setFoodTab("search")
+        fetchSavedFoods()
     }
 
     const handleBarcodeDetected = useCallback(async (barcode: string) => {
@@ -308,6 +353,57 @@ function CalorieTracker() {
         setSelectedFood(food)
         setServings("1")
         setFoodAddError("")
+    }
+
+    const handleToggleSavedFood = async (food: Food) => {
+        if (savingFoodKey !== null) {
+            return
+        }
+
+        const foodKey = getFoodKey(food)
+        const alreadySavedFood = savedFoods.find(savedFood => getFoodKey(savedFood) === foodKey)
+        const alreadySaved = Boolean(alreadySavedFood)
+
+        if (alreadySaved && !alreadySavedFood?.id) {
+            return
+        }
+
+        setSavingFoodKey(foodKey)
+        setSavedFoodError("")
+
+        try {
+            const response = await apiFetch(
+                alreadySaved
+                    ? `${BASEURL}/caltracker/saved-foods/${alreadySavedFood?.id}`
+                    : `${BASEURL}/caltracker/saved-foods`,
+                {
+                    method:alreadySaved ? "DELETE" : "POST",
+                    credentials:"include",
+                    headers:{"Content-Type":"application/json"},
+                    ...(!alreadySaved && {
+                        body:JSON.stringify({foodId:food.id, food})
+                    })
+                }
+            )
+            const data = await response.json()
+
+            if (!response.ok) {
+                setSavedFoodError(data.message || "Could not update saved foods.")
+
+                return
+            }
+
+            if (alreadySaved) {
+                setSavedFoods(currentFoods => currentFoods.filter(savedFood => getFoodKey(savedFood) !== foodKey))
+            } else {
+                const savedFood = data.food || food
+                setSavedFoods(currentFoods => [savedFood, ...currentFoods.filter(currentFood => getFoodKey(currentFood) !== getFoodKey(savedFood))])
+            }
+        } catch {
+            setSavedFoodError("Could not update saved foods.")
+        } finally {
+            setSavingFoodKey(null)
+        }
     }
 
     const handleAddFood = async () => {
@@ -375,6 +471,8 @@ function CalorieTracker() {
                 return
             }
 
+            setStreak(await fetchUserStreak())
+
             await fetchLog(selectedDate)
             closeFoodModal()
             setFoodSearch("")
@@ -400,6 +498,61 @@ function CalorieTracker() {
         await fetchLog(selectedDate)
         setDeletingEntryId(null)
     }
+
+    const renderFoodResults = (foods: Food[]) => (
+        <div className="space-y-3">
+            {foods.map((food) => {
+                const foodKey = getFoodKey(food)
+                const isSaved = savedFoods.some(savedFood => getFoodKey(savedFood) === foodKey)
+                const isSaving = savingFoodKey === foodKey
+
+                return (
+                    <div
+                        key={food.id || food.fdc_id || food.name}
+                        className="flex items-stretch overflow-hidden rounded-2xl border border-transparent bg-[#171B1F] transition hover:border-[#2DDE85]"
+                    >
+                        <button
+                            className="min-w-0 flex-1 p-4 text-left"
+                            onClick={() => handleFoodClick(food)}
+                        >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                    <div className="truncate font-semibold text-white">{food.name}</div>
+
+                                    {food.brand_name && (
+                                        <p className="mt-1 truncate text-sm text-[#6B7280]">{food.brand_name}</p>
+                                    )}
+
+                                    <p className="mt-2 text-sm text-[#94A3B8]">
+                                        {food.calories} cal per {formatServing(food)}
+                                    </p>
+                                </div>
+
+                                <div className="flex shrink-0 gap-2 text-xs text-[#CBD5E1]">
+                                    <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.protein}P</span>
+                                    <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.carbs}C</span>
+                                    <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.fats}F</span>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => handleToggleSavedFood(food)}
+                            disabled={isSaving}
+                            className={`flex w-14 shrink-0 items-center justify-center border-l border-[#2A3138] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                                isSaved
+                                    ? "bg-[#2DDE85]/10 text-[#2DDE85] hover:bg-red-500/10 hover:text-red-300"
+                                    : "text-[#6B7280] hover:bg-[#2DDE85]/10 hover:text-[#2DDE85]"
+                            }`}
+                            aria-label={isSaved ? `Remove ${food.name} from saved foods` : `Save ${food.name}`}
+                        >
+                            {isSaved ? <BookmarkCheck size={21} /> : <Bookmark size={21} />}
+                        </button>
+                    </div>
+                )
+            })}
+        </div>
+    )
 
     return (
         <div className="min-h-screen bg-[#171B1F] text-[#F8FAFC] md:pl-64">
@@ -459,6 +612,30 @@ function CalorieTracker() {
                                 Add Food
                             </button>
                         </div>
+                    </div>
+                </section>
+
+                <section className="mb-4 grid grid-cols-2 gap-3 md:mb-5 md:gap-4">
+                    <div className="rounded-[22px] border border-[#2DDE85]/25 bg-[#2DDE85]/8 p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Logging streak</p>
+                            <Flame size={18} className="text-[#2DDE85] md:size-5" />
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
+                            {streak?.current_calorie_streak || 0}
+                            <span className="ml-2 text-sm font-medium text-[#94A3B8]">days</span>
+                        </p>
+                    </div>
+
+                    <div className="rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Best streak</p>
+                            <Trophy size={18} className="text-[#2DDE85] md:size-5" />
+                        </div>
+                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
+                            {streak?.best_calorie_streak || 0}
+                            <span className="ml-2 text-sm font-medium text-[#94A3B8]">days</span>
+                        </p>
                     </div>
                 </section>
 
@@ -647,6 +824,31 @@ function CalorieTracker() {
                         <div className="p-6">
                             {!selectedFood && !showBarcodeScanner && (
                                 <div className="space-y-3">
+                                    <div className="grid grid-cols-2 rounded-2xl bg-[#171B1F] p-1">
+                                        <button
+                                            onClick={() => setFoodTab("search")}
+                                            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                                                foodTab === "search"
+                                                    ? "bg-[#2DDE85] text-black"
+                                                    : "text-[#94A3B8] hover:text-white"
+                                            }`}
+                                        >
+                                            Search
+                                        </button>
+                                        <button
+                                            onClick={() => setFoodTab("saved")}
+                                            className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                                                foodTab === "saved"
+                                                    ? "bg-[#2DDE85] text-black"
+                                                    : "text-[#94A3B8] hover:text-white"
+                                            }`}
+                                        >
+                                            <Bookmark size={16} />
+                                            Saved ({savedFoods.length})
+                                        </button>
+                                    </div>
+
+                                    {foodTab === "search" && (
                                     <div className="relative">
                                         <Search
                                             size={18}
@@ -662,8 +864,9 @@ function CalorieTracker() {
                                             className="w-full rounded-2xl border border-[#313A45] bg-[#171B1F] py-3 pl-11 pr-4 text-white outline-none transition placeholder:text-[#6B7280] focus:border-[#2DDE85]"
                                         />
                                     </div>
+                                    )}
 
-                                    <button
+                                    {foodTab === "search" && <button
                                         onClick={() => {
                                             setBarcodeLookupError("")
                                             setShowBarcodeScanner(true)
@@ -672,11 +875,17 @@ function CalorieTracker() {
                                     >
                                         <ScanLine size={19} />
                                         Scan barcode
-                                    </button>
+                                    </button>}
 
-                                    {barcodeLookupError && (
+                                    {foodTab === "search" && barcodeLookupError && (
                                         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300 md:hidden">
                                             {barcodeLookupError}
+                                        </div>
+                                    )}
+
+                                    {savedFoodError && (
+                                        <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                                            {savedFoodError}
                                         </div>
                                     )}
                                 </div>
@@ -777,6 +986,20 @@ function CalorieTracker() {
                                             {addingFood ? "Adding..." : "Add Food"}
                                         </button>
                                     </div>
+                                ) : foodTab === "saved" ? (
+                                    savedFoodsLoading ? (
+                                        <div className="flex min-h-56 items-center justify-center text-sm text-[#94A3B8]">
+                                            Loading saved foods...
+                                        </div>
+                                    ) : savedFoods.length === 0 ? (
+                                        <div className="rounded-2xl border border-dashed border-[#313A45] bg-[#171B1F] px-6 py-14 text-center">
+                                            <Bookmark size={28} className="mx-auto mb-4 text-[#2DDE85]" />
+                                            <p className="font-semibold text-white">No saved foods yet.</p>
+                                            <p className="mt-2 text-sm text-[#6B7280]">
+                                                Search for food and tap the bookmark to keep it here.
+                                            </p>
+                                        </div>
+                                    ) : renderFoodResults(savedFoods)
                                 ) : foodResults.length === 0 ? (
                                     <div className="rounded-2xl border border-dashed border-[#313A45] bg-[#171B1F] px-6 py-14 text-center">
                                         <p className="font-semibold text-white">
@@ -787,39 +1010,7 @@ function CalorieTracker() {
                                         </p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-3">
-                                        {foodResults.map((food) => (
-                                            <button
-                                                key={food.id || food.fdc_id || food.name}
-                                                className="w-full rounded-2xl border border-transparent bg-[#171B1F] p-4 text-left transition hover:border-[#2DDE85]"
-                                                onClick={()=>{handleFoodClick(food)}}
-                                            >
-                                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                    <div>
-                                                        <div className="font-semibold text-white">
-                                                            {food.name}
-                                                        </div>
-
-                                                        {food.brand_name && (
-                                                            <p className="mt-1 text-sm text-[#6B7280]">
-                                                                {food.brand_name}
-                                                            </p>
-                                                        )}
-
-                                                        <p className="mt-2 text-sm text-[#94A3B8]">
-                                                            {food.calories} cal per {formatServing(food)}
-                                                        </p>
-                                                    </div>
-
-                                                    <div className="flex gap-2 text-xs text-[#CBD5E1]">
-                                                        <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.protein}P</span>
-                                                        <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.carbs}C</span>
-                                                        <span className="rounded-full bg-[#1E242B] px-2.5 py-1">{food.fats}F</span>
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
+                                    renderFoodResults(foodResults)
                                 )}
                             </div>
                         </div>

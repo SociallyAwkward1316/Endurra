@@ -1,5 +1,5 @@
 import express from "express"
-import { addFoodToLog, createLog, createNutritionProfile, fetchLog, grabNutritionProfile, removeFoodFromLog, searchFoodByBarcode, searchForFood } from "../controllers/caltracker.controller.js"
+import { addFoodToLog, createLog, createNutritionProfile, fetchLog, fetchSavedFoods, grabNutritionProfile, removeFoodFromLog, removeSavedFood, saveFood, searchFoodByBarcode, searchForFood } from "../controllers/caltracker.controller.js"
 
 const router = express.Router()
 
@@ -10,6 +10,10 @@ router.get("/getDailyLog/:date", fetchLog)
 
 router.get("/foodsearch/search", searchForFood)
 router.get("/foodsearch/barcode", searchFoodByBarcode)
+
+router.get("/saved-foods", fetchSavedFoods)
+router.post("/saved-foods", saveFood)
+router.delete("/saved-foods/:foodId", removeSavedFood)
 
 router.post("/addFoodToLog", addFoodToLog)
 router.delete("/deleteFoodEntry/:entryId", removeFoodFromLog)

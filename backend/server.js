@@ -5,6 +5,7 @@ import WorkoutRouter from "./routes/workout.routes.js"
 import CalTrackerRouter from "./routes/caltracker.routes.js"
 import AnalyticsRouter from "./routes/analytics.routes.js"
 import ProfileRouter from "./routes/profile.routes.js"
+import StreakRouter from "./routes/streak.routes.js"
 import errorhandler from "./middleware/errorhandler.js"
 import cookieParser from "cookie-parser"
 import cors from "cors"
@@ -24,6 +25,7 @@ app.use("/workout", tokenAuthentication ,WorkoutRouter)
 app.use("/caltracker", tokenAuthentication, CalTrackerRouter)
 app.use("/analytics", tokenAuthentication, AnalyticsRouter)
 app.use("/profile", tokenAuthentication, ProfileRouter)
+app.use("/streaks", tokenAuthentication, StreakRouter)
 
 
 app.listen(PORT, () => {
