@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { getAllUserWorkouts, getUserWorkoutDetail, postSet, postUserWorkout, deleteSet, getExerciseList, postExerciseToWorkout, deleteExerciseFromWorkout, deleteUserWorkout, createUserExercise} from "../services/workout.services.js"
+import { getAllUserWorkouts, getExerciseBestWeight, getUserWorkoutDetail, postSet, postUserWorkout, deleteSet, getExerciseList, postExerciseToWorkout, deleteExerciseFromWorkout, deleteUserWorkout, createUserExercise} from "../services/workout.services.js"
 import { updateUserStreak } from "../services/streak.services.js"
 
 export const getUserWorkouts = async (req, res) => {
@@ -57,18 +57,42 @@ export const addSet = async (req,res) => {
     const exerciseId = req.body.exerciseId
     const weight = req.body.weight
     const reps = req.body.reps
+    const numericWeight = Number(weight)
+    const numericReps = Number(reps)
 
     if (workoutUserId !== req.user.userId) {
         return res.status(401).json({message:"Unauthorized"})
     }
 
-    if (!weight || !reps) {
+    if (!Number.isFinite(numericWeight) || numericWeight < 0 || !Number.isFinite(numericReps) || numericReps <= 0) {
         return res.status(400).json({message:"Missing Data to POST"})
     }
 
-    const set = await postSet(exerciseId, weight, reps)
+    const previousRecord = await getExerciseBestWeight(req.user.userId, exerciseId)
 
-    return res.status(200).json(set)
+    if (previousRecord.error) {
+        const status = previousRecord.error.message === "Unauthorized workout exercise" ? 401 : 404
+
+        return res.status(status).json({message:previousRecord.error.message})
+    }
+
+    const set = await postSet(exerciseId, numericWeight, numericReps)
+
+    if (set.error) {
+        return res.status(500).json({message:set.error.message})
+    }
+
+    const isPersonalRecord = previousRecord.data.hasPreviousSets && numericWeight > previousRecord.data.previousBest
+
+    return res.status(200).json({
+        data:set.data,
+        personalRecord:{
+            isPr:isPersonalRecord,
+            previousBest:previousRecord.data.previousBest,
+            newBest:numericWeight,
+            improvement:isPersonalRecord ? numericWeight - previousRecord.data.previousBest : 0
+        }
+    })
 } 
 
 export const delSet = async (req,res) => {

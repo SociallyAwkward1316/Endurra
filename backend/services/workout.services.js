@@ -59,6 +59,64 @@ export const postSet = async (exerciseId, weight, reps) => {
     return set
 }
 
+export const getExerciseBestWeight = async (userId, workoutExerciseId) => {
+    const targetExercise = await supabase
+        .from("WorkoutExercises")
+        .select("id, exercise_id, workout_id")
+        .eq("id", workoutExerciseId)
+        .maybeSingle()
+
+    if (targetExercise.error || !targetExercise.data) {
+        return {
+            data:null,
+            error:targetExercise.error || new Error("Workout exercise not found")
+        }
+    }
+
+    const userWorkouts = await supabase
+        .from("Workouts")
+        .select("id")
+        .eq("user_id", userId)
+
+    if (userWorkouts.error) {
+        return userWorkouts
+    }
+
+    const workoutIds = (userWorkouts.data || []).map(workout => workout.id)
+
+    if (!workoutIds.includes(targetExercise.data.workout_id)) {
+        return {data:null, error:new Error("Unauthorized workout exercise")}
+    }
+
+    if (workoutIds.length === 0) {
+        return {data:{previousBest:0, hasPreviousSets:false}, error:null}
+    }
+
+    const exerciseHistory = await supabase
+        .from("WorkoutExercises")
+        .select("Sets(weight)")
+        .eq("exercise_id", targetExercise.data.exercise_id)
+        .in("workout_id", workoutIds)
+
+    if (exerciseHistory.error) {
+        return exerciseHistory
+    }
+
+    const weights = (exerciseHistory.data || []).flatMap(workoutExercise =>
+        (workoutExercise.Sets || [])
+            .map(set => Number(set.weight))
+            .filter(Number.isFinite)
+    )
+
+    return {
+        data:{
+            previousBest:weights.length ? Math.max(...weights) : 0,
+            hasPreviousSets:weights.length > 0
+        },
+        error:null
+    }
+}
+
 export const deleteSet = async (set_id) => {
     const deletedset = await supabase.from("Sets").delete().eq("id", set_id)
 }

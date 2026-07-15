@@ -4,6 +4,7 @@ import {
     Dumbbell,
     Plus,
     Search,
+    Sparkles,
     Trash2,
     Trophy,
     X
@@ -41,6 +42,13 @@ type Workout = {
     date?: string
     created_at?: string
     WorkoutExercises?: WorkoutExercise[]
+}
+
+type PersonalRecordCelebration = {
+    exerciseName: string
+    previousBest: number
+    newBest: number
+    improvement: number
 }
 
 type WheelPickerProps = {
@@ -156,6 +164,7 @@ function WorkoutDetail() {
     const [addingExercise, setAddingExercise] = useState(false)
     const [addingSet, setAddingSet] = useState(false)
     const [exerciseCreateError, setExerciseCreateError] = useState("")
+    const [personalRecord, setPersonalRecord] = useState<PersonalRecordCelebration | null>(null)
     const creatingExerciseRef = useRef(false)
     const addingExerciseRef = useRef(false)
     const addingSetRef = useRef(false)
@@ -197,6 +206,16 @@ function WorkoutDetail() {
 
         loadPageData()
     },[fetchWorkoutInfo, fetchExerciseList])
+
+    useEffect(() => {
+        if (!personalRecord) {
+            return
+        }
+
+        const timeout = window.setTimeout(() => setPersonalRecord(null), 4500)
+
+        return () => window.clearTimeout(timeout)
+    }, [personalRecord])
 
     const filteredExercises = useMemo(() => {
         return exerciseList.filter((exercise) =>
@@ -390,13 +409,14 @@ function WorkoutDetail() {
         const exerciseId = selectedExercise
         const submittedWeight = weight
         const submittedReps = reps
+        const exerciseName = workout.WorkoutExercises?.find(exercise => exercise.id === exerciseId)?.Exercises.name || "Exercise"
 
         setWeight("")
         setReps("")
         setSelectedExercise(null)
 
         try {
-            await apiFetch(`${BASEURL}/workout/addSetToExercise`,
+            const response = await apiFetch(`${BASEURL}/workout/addSetToExercise`,
                 {
                     method:"POST",
                     credentials:"include",
@@ -409,6 +429,17 @@ function WorkoutDetail() {
                     })
                 }
             )
+            const data = await response.json()
+
+            if (response.ok && data.personalRecord?.isPr) {
+                setPersonalRecord({
+                    exerciseName,
+                    previousBest:Number(data.personalRecord.previousBest) || 0,
+                    newBest:Number(data.personalRecord.newBest) || Number(submittedWeight),
+                    improvement:Number(data.personalRecord.improvement) || 0
+                })
+                navigator.vibrate?.([80, 40, 120])
+            }
 
             await fetchWorkoutInfo()
         } finally {
@@ -455,6 +486,39 @@ function WorkoutDetail() {
     return (
         <div className="min-h-screen bg-[#171B1F] text-[#F8FAFC] md:pl-64">
             <Navbar />
+
+            {personalRecord && (
+                <div
+                    className="fixed right-4 top-20 z-[60] w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-2xl border border-[#2DDE85]/50 bg-gradient-to-br from-[#173626] via-[#142A20] to-[#111418] p-4 shadow-2xl shadow-[#2DDE85]/20 md:right-6 md:top-6"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <div className="pointer-events-none absolute -right-5 -top-5 h-24 w-24 rounded-full bg-[#2DDE85]/15 blur-2xl" />
+                    <Sparkles size={15} className="absolute right-10 top-4 animate-pulse text-[#2DDE85]" />
+                    <Sparkles size={11} className="absolute right-5 top-10 animate-pulse text-yellow-300" />
+
+                    <div className="relative flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#2DDE85] text-black shadow-lg shadow-[#2DDE85]/30">
+                            <Trophy size={28} className="animate-bounce" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#2DDE85]">New personal record</p>
+                            <h2 className="mt-1 truncate text-lg font-bold text-white">{personalRecord.exerciseName}</h2>
+                            <p className="mt-1 text-sm text-[#A7F3D0]">
+                                <span className="font-bold text-white">{personalRecord.newBest} lb</span>
+                                {" "}— up {personalRecord.improvement} lb from {personalRecord.previousBest} lb
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setPersonalRecord(null)}
+                            className="self-start rounded-lg p-1 text-[#94A3B8] transition hover:bg-white/10 hover:text-white"
+                            aria-label="Dismiss personal record notification"
+                        >
+                            <X size={17} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <main className="mx-auto w-full max-w-7xl px-4 pb-6 pt-16 md:px-8 md:py-8">
                 <section className="mb-6 overflow-hidden rounded-[28px] border border-[#2A3138] bg-[#1E242B] shadow-2xl shadow-black/20">

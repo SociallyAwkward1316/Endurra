@@ -3,7 +3,7 @@ import { CalendarDays, Dumbbell, Flame, Plus, Search, Trophy, Trash2, X } from "
 import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL.tsx"
-import { fetchUserStreak, getLocalDateKey } from "../streaks"
+import { fetchUserStreak, getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 import type { UserStreak } from "../streaks"
 
 type Workout = {
@@ -93,6 +93,7 @@ function WorkoutDash() {
 
         if (data.streak) {
             setStreak(data.streak)
+            notifyStreaksUpdated()
         }
 
         setWorkoutName("")

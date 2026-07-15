@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
-import { fetchUserStreak, getLocalDateKey } from "../streaks"
+import { fetchUserStreak, getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 import type { UserStreak } from "../streaks"
 
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner"))
@@ -472,6 +472,7 @@ function CalorieTracker() {
             }
 
             setStreak(await fetchUserStreak())
+            notifyStreaksUpdated()
 
             await fetchLog(selectedDate)
             closeFoodModal()

@@ -11,8 +11,6 @@ import {
 } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
-import { fetchUserStreak } from "../streaks"
-import type { UserStreak } from "../streaks"
 
 type UserProfile = {
     first_name: string
@@ -39,7 +37,6 @@ function Dashboard () {
     const [nutritionProfile, setNutritionProfile] = useState<NutritionProfile | null>(null)
     const [workouts, setWorkouts] = useState<Workout[]>([])
     const [quoteIndex, setQuoteIndex] = useState(0)
-    const [streak, setStreak] = useState<UserStreak | null>(null)
 
     const fetchUser = useCallback(async () => {
         const response = await apiFetch(`${BASEURL}/profile`, {
@@ -96,14 +93,11 @@ function Dashboard () {
 
     useEffect(() => {
         const loadDashboard = async () => {
-            const [, , , streakData] = await Promise.all([
+            await Promise.all([
                 fetchUser(),
                 fetchNutritionProfile(),
-                fetchWorkouts(),
-                fetchUserStreak()
+                fetchWorkouts()
             ])
-
-            setStreak(streakData)
         }
 
         loadDashboard()
@@ -244,28 +238,6 @@ function Dashboard () {
                 </section>
 
                 <section className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-                    <div className="rounded-[22px] border border-[#2DDE85]/25 bg-[#2DDE85]/8 p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Workout streak</p>
-                            <Flame size={18} className="shrink-0 text-[#2DDE85] md:size-5" />
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            {streak?.current_workout_streak || 0} <span className="text-sm font-medium text-[#94A3B8]">days</span>
-                        </p>
-                        <p className="mt-1 text-xs text-[#6B7280]">Best: {streak?.best_workout_streak || 0} days</p>
-                    </div>
-
-                    <div className="rounded-[22px] border border-[#2DDE85]/25 bg-[#2DDE85]/8 p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Nutrition streak</p>
-                            <Utensils size={18} className="shrink-0 text-[#2DDE85] md:size-5" />
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            {streak?.current_calorie_streak || 0} <span className="text-sm font-medium text-[#94A3B8]">days</span>
-                        </p>
-                        <p className="mt-1 text-xs text-[#6B7280]">Best: {streak?.best_calorie_streak || 0} days</p>
-                    </div>
-
                     <div className="rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Total workouts</p>

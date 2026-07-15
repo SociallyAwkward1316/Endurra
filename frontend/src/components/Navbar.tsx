@@ -4,6 +4,7 @@ import {
     ChartColumn,
     ChevronRight,
     Dumbbell,
+    Flame,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -12,6 +13,8 @@ import {
 } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { BASEURL, apiFetch } from "../URL"
+import { fetchUserStreak, STREAKS_UPDATED_EVENT } from "../streaks"
+import type { UserStreak } from "../streaks"
 
 type NavItem = {
     label: string
@@ -23,6 +26,7 @@ type NavItem = {
 function Navbar() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [loggingOut, setLoggingOut] = useState(false)
+    const [streak, setStreak] = useState<UserStreak | null>(null)
     const navigate = useNavigate()
     const location = useLocation()
 
@@ -65,6 +69,17 @@ function Navbar() {
         }
         nutritionProfileCheck()
     }, [navigate])
+
+    useEffect(() => {
+        const loadStreak = async () => {
+            setStreak(await fetchUserStreak())
+        }
+
+        loadStreak()
+        window.addEventListener(STREAKS_UPDATED_EVENT, loadStreak)
+
+        return () => window.removeEventListener(STREAKS_UPDATED_EVENT, loadStreak)
+    }, [])
 
     const handleNavigate = (path: string, disabled?: boolean) => {
         if (disabled) {
@@ -115,6 +130,23 @@ function Navbar() {
             >
                 {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
+
+            <div
+                className="fixed right-4 top-4 z-30 flex h-11 items-center overflow-hidden rounded-xl border border-[#2A3138] bg-[#111418]/95 shadow-lg shadow-black/20 backdrop-blur md:hidden"
+                aria-label={`Workout streak ${streak?.current_workout_streak || 0} days, nutrition streak ${streak?.current_calorie_streak || 0} days`}
+            >
+                <div className="flex h-full items-center gap-1.5 px-3" title="Workout streak">
+                    <Dumbbell size={15} className="text-[#2DDE85]" />
+                    <span className="text-sm font-bold text-white">{streak?.current_workout_streak || 0}</span>
+                    <Flame size={13} className="text-orange-400" />
+                </div>
+                <div className="h-6 w-px bg-[#2A3138]" />
+                <div className="flex h-full items-center gap-1.5 px-3" title="Nutrition streak">
+                    <Apple size={15} className="text-[#2DDE85]" />
+                    <span className="text-sm font-bold text-white">{streak?.current_calorie_streak || 0}</span>
+                    <Flame size={13} className="text-orange-400" />
+                </div>
+            </div>
 
             {sidebarOpen && (
                 <div
@@ -200,6 +232,29 @@ function Navbar() {
                     </nav>
 
                     <div className="mt-5 border-t border-[#222A31] pt-4">
+                        <div className="mb-3 grid grid-cols-2 gap-2 px-1">
+                            <div className="rounded-xl border border-[#2DDE85]/20 bg-[#2DDE85]/8 px-3 py-2.5">
+                                <div className="flex items-center gap-1.5 text-[#2DDE85]">
+                                    <Dumbbell size={14} />
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide">Workout</span>
+                                </div>
+                                <p className="mt-1 text-lg font-bold text-white">
+                                    {streak?.current_workout_streak || 0}
+                                    <span className="ml-1 text-[10px] font-medium text-[#6B7280]">days</span>
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-[#2DDE85]/20 bg-[#2DDE85]/8 px-3 py-2.5">
+                                <div className="flex items-center gap-1.5 text-[#2DDE85]">
+                                    <Apple size={14} />
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide">Nutrition</span>
+                                </div>
+                                <p className="mt-1 text-lg font-bold text-white">
+                                    {streak?.current_calorie_streak || 0}
+                                    <span className="ml-1 text-[10px] font-medium text-[#6B7280]">days</span>
+                                </p>
+                            </div>
+                        </div>
+
                         <button
                             onClick={() => handleNavigate("/profile")}
                             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
