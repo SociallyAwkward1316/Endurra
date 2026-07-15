@@ -400,7 +400,11 @@ export const addFoodToLog = async (req, res) => {
         console.error("Could not update calorie streak", streak.error.message)
     }
 
-    return res.status(200).json({message:"Food Added", streak:streak.data || null})
+    return res.status(200).json({
+        message:"Food Added",
+        foodEntry:foodEntry.data,
+        streak:streak.data || null
+    })
 
 }
 

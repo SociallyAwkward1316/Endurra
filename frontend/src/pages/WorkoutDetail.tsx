@@ -316,11 +316,35 @@ function WorkoutDetail() {
             const data = await response.json()
             const addedExercise = data.data?.[0] as AddedWorkoutExercise | undefined
 
-            await fetchWorkoutInfo()
-
-            if (addedExercise?.id) {
-                openSetModal(addedExercise.id)
+            if (!response.ok || !addedExercise?.id) {
+                return
             }
+
+            setWorkout((currentWorkout) => {
+                if (!currentWorkout) {
+                    return currentWorkout
+                }
+
+                const currentExercises = currentWorkout.WorkoutExercises || []
+                const alreadyAdded = currentExercises.some((workoutExercise) => workoutExercise.id === addedExercise.id)
+
+                if (alreadyAdded) {
+                    return currentWorkout
+                }
+
+                return {
+                    ...currentWorkout,
+                    WorkoutExercises:[
+                        ...currentExercises,
+                        {
+                            id:addedExercise.id,
+                            Exercises:exercise,
+                            Sets:[]
+                        }
+                    ]
+                }
+            })
+            openSetModal(addedExercise.id)
         } finally {
             addingExerciseRef.current = false
             setAddingExercise(false)
@@ -430,8 +454,31 @@ function WorkoutDetail() {
                 }
             )
             const data = await response.json()
+            const addedSet = data.data?.[0] as SetEntry | undefined
 
-            if (response.ok && data.personalRecord?.isPr) {
+            if (!response.ok || !addedSet) {
+                return
+            }
+
+            setWorkout((currentWorkout) => {
+                if (!currentWorkout) {
+                    return currentWorkout
+                }
+
+                return {
+                    ...currentWorkout,
+                    WorkoutExercises:(currentWorkout.WorkoutExercises || []).map((workoutExercise) =>
+                        workoutExercise.id === exerciseId
+                            ? {
+                                ...workoutExercise,
+                                Sets:[...(workoutExercise.Sets || []), addedSet]
+                            }
+                            : workoutExercise
+                    )
+                }
+            })
+
+            if (data.personalRecord?.isPr) {
                 setPersonalRecord({
                     exerciseName,
                     previousBest:Number(data.personalRecord.previousBest) || 0,
@@ -440,8 +487,6 @@ function WorkoutDetail() {
                 })
                 navigator.vibrate?.([80, 40, 120])
             }
-
-            await fetchWorkoutInfo()
         } finally {
             addingSetRef.current = false
             setAddingSet(false)
@@ -861,6 +906,8 @@ function WorkoutDetail() {
                             <div className="hidden grid-cols-2 gap-3 md:grid">
                             <input
                                 type="number"
+                                min="0"
+                                step="0.5"
                                 placeholder="Weight"
                                 value={weight}
                                 onChange={(e) => setWeight(e.target.value)}
@@ -869,6 +916,8 @@ function WorkoutDetail() {
 
                             <input
                                 type="number"
+                                min="1"
+                                step="1"
                                 placeholder="Reps"
                                 value={reps}
                                 onChange={(e) => setReps(e.target.value)}

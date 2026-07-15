@@ -424,6 +424,7 @@ function CalorieTracker() {
 
         try {
             let logId = dailyLog?.id
+            let activeLog = dailyLog
 
             if (!dailyLog?.id) {
                 const response = await apiFetch(`${BASEURL}/caltracker/createUserLog`,
@@ -445,7 +446,8 @@ function CalorieTracker() {
                     return
                 }
 
-                setDailyLog(data.log)
+                activeLog = data.log
+                setDailyLog(activeLog)
                 logId = data.log?.id
             }
 
@@ -471,13 +473,25 @@ function CalorieTracker() {
                 return
             }
 
-            setStreak(await fetchUserStreak())
-            notifyStreaksUpdated()
+            const addedFoodEntry = data.foodEntry as FoodEntry | undefined
 
-            await fetchLog(selectedDate)
+            if (addedFoodEntry && activeLog) {
+                setDailyLog((currentLog) => {
+                    const log = currentLog || activeLog
+
+                    return {
+                        ...log,
+                        FoodEntries:[...(log.FoodEntries || []), addedFoodEntry]
+                    }
+                })
+            }
+
             closeFoodModal()
             setFoodSearch("")
             setFoodResults([])
+
+            setStreak(await fetchUserStreak())
+            notifyStreaksUpdated()
         } catch {
             setFoodAddError("Could not add this food. Please try again.")
         } finally {

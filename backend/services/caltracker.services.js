@@ -117,7 +117,11 @@ export const postFoodtoDb = async (foodsList) => {
 }
 
 export const postFoodEntry = async (logId, foodId, servings) => {
-    const food = await supabase.from("FoodEntries").insert({log_id:logId, food_id:foodId, servings}).select()
+    const food = await supabase
+        .from("FoodEntries")
+        .insert({log_id:logId, food_id:foodId, servings})
+        .select("id, servings, Food(*)")
+        .single()
 
     return food
 }
