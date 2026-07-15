@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { CalendarDays, Dumbbell, Flame, Plus, Search, Trophy, Trash2, X } from "lucide-react"
+import { CalendarDays, Dumbbell, Plus, Search, Trash2, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL.tsx"
-import { fetchUserStreak, getLocalDateKey, notifyStreaksUpdated } from "../streaks"
-import type { UserStreak } from "../streaks"
+import { getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 
 type Workout = {
     id: number
@@ -20,7 +19,6 @@ function WorkoutDash() {
     const [workoutToDelete, setWorkoutToDelete] = useState<Workout | null>(null)
     const [deletingWorkoutId, setDeletingWorkoutId] = useState<number | null>(null)
     const [creatingWorkout, setCreatingWorkout] = useState(false)
-    const [streak, setStreak] = useState<UserStreak | null>(null)
     const navigate = useNavigate()
 
     const fetchWorkouts = useCallback(async () => {
@@ -44,12 +42,7 @@ function WorkoutDash() {
 
     useEffect(() => {
         const loadPage = async () => {
-            const [, streakData] = await Promise.all([
-                fetchWorkouts(),
-                fetchUserStreak()
-            ])
-
-            setStreak(streakData)
+            await fetchWorkouts()
         }
 
         loadPage()
@@ -92,7 +85,6 @@ function WorkoutDash() {
         const createdWorkout = data.data?.[0]
 
         if (data.streak) {
-            setStreak(data.streak)
             notifyStreaksUpdated()
         }
 
@@ -161,8 +153,8 @@ function WorkoutDash() {
                     </div>
                 </section>
 
-                <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-                    <div className="col-span-2 rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:col-span-1 md:rounded-[24px] md:p-5">
+                <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4">
+                    <div className="rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
                         <p className="text-sm font-medium text-[#94A3B8]">Total workouts</p>
                         <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">{workouts.length}</p>
                     </div>
@@ -172,24 +164,6 @@ function WorkoutDash() {
                         <p className="mt-2 truncate text-lg font-bold text-white md:mt-3 md:text-xl">
                             {workouts[0] ? workouts[0].name : "None yet"}
                         </p>
-                    </div>
-
-                    <div className="rounded-[22px] border border-[#2DDE85]/25 bg-[#2DDE85]/8 p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <p className="text-sm font-medium text-[#94A3B8]">Current streak</p>
-                        <p className="mt-2 inline-flex items-center gap-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            <Flame size={20} className="text-[#2DDE85]" />
-                            {streak?.current_workout_streak || 0}
-                        </p>
-                        <p className="mt-1 text-xs text-[#6B7280]">consecutive days</p>
-                    </div>
-
-                    <div className="rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <p className="text-sm font-medium text-[#94A3B8]">Best streak</p>
-                        <p className="mt-2 inline-flex items-center gap-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            <Trophy size={20} className="text-[#2DDE85]" />
-                            {streak?.best_workout_streak || 0}
-                        </p>
-                        <p className="mt-1 text-xs text-[#6B7280]">personal best</p>
                     </div>
                 </section>
 

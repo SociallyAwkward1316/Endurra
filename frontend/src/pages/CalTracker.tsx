@@ -5,18 +5,15 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
-    Flame,
     Plus,
     ScanLine,
     Search,
     Trash2,
-    Trophy,
     X
 } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
-import { fetchUserStreak, getLocalDateKey, notifyStreaksUpdated } from "../streaks"
-import type { UserStreak } from "../streaks"
+import { getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner"))
 
@@ -89,7 +86,6 @@ function CalorieTracker() {
     const [savingFoodKey, setSavingFoodKey] = useState<string | null>(null)
     const [savedFoodsLoading, setSavedFoodsLoading] = useState(false)
     const [savedFoodError, setSavedFoodError] = useState("")
-    const [streak, setStreak] = useState<UserStreak | null>(null)
 
     const formatServing = (food?: Food) => {
         if (!food) {
@@ -199,14 +195,6 @@ function CalorieTracker() {
         fetchPageData()
         loadLog()
     }, [selectedDate, fetchLog])
-
-    useEffect(() => {
-        const loadStreak = async () => {
-            setStreak(await fetchUserStreak())
-        }
-
-        loadStreak()
-    }, [])
 
     useEffect(() => {
         const timeout = setTimeout(async () => {
@@ -490,7 +478,6 @@ function CalorieTracker() {
             setFoodSearch("")
             setFoodResults([])
 
-            setStreak(await fetchUserStreak())
             notifyStreaksUpdated()
         } catch {
             setFoodAddError("Could not add this food. Please try again.")
@@ -627,30 +614,6 @@ function CalorieTracker() {
                                 Add Food
                             </button>
                         </div>
-                    </div>
-                </section>
-
-                <section className="mb-4 grid grid-cols-2 gap-3 md:mb-5 md:gap-4">
-                    <div className="rounded-[22px] border border-[#2DDE85]/25 bg-[#2DDE85]/8 p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Logging streak</p>
-                            <Flame size={18} className="text-[#2DDE85] md:size-5" />
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            {streak?.current_calorie_streak || 0}
-                            <span className="ml-2 text-sm font-medium text-[#94A3B8]">days</span>
-                        </p>
-                    </div>
-
-                    <div className="rounded-[22px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:rounded-[24px] md:p-5">
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-xs font-medium text-[#94A3B8] md:text-sm">Best streak</p>
-                            <Trophy size={18} className="text-[#2DDE85] md:size-5" />
-                        </div>
-                        <p className="mt-2 text-2xl font-bold text-white md:mt-3 md:text-3xl">
-                            {streak?.best_calorie_streak || 0}
-                            <span className="ml-2 text-sm font-medium text-[#94A3B8]">days</span>
-                        </p>
                     </div>
                 </section>
 
