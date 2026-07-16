@@ -24,6 +24,15 @@ export const grabUserFromSupabase = async (email) => {
     return user.data[0]
 }
 
+export const updateUserPassword = async (userId, password) => {
+    return supabase
+        .from("Users")
+        .update({password})
+        .eq("id", userId)
+        .select("id")
+        .single()
+}
+
 export const getUserById = async (userId) => {
     return supabase
         .from("Users")

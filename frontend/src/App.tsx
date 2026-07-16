@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom'
 
 const Signup = lazy(() => import('./pages/Signup'))
 const Login = lazy(() => import('./pages/Login'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const WorkoutDash = lazy(() => import('./pages/WorkoutDash'))
 const WorkoutDetail = lazy(() => import('./pages/WorkoutDetail'))
@@ -19,6 +21,8 @@ function App() {
       <Routes>
         <Route path='/' element={<Signup />}/>
         <Route path='/login' element={<Login />}/>
+        <Route path='/forgot-password' element={<ForgotPassword />}/>
+        <Route path='/reset-password' element={<ResetPassword />}/>
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/createNutritionProfile' element={<CreateNutritionProfile />} />
         <Route path='/workoutDash' element={<WorkoutDash />} />

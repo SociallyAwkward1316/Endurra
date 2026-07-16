@@ -1,7 +1,8 @@
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import "dotenv/config"
-import { checkIfEmailInUse, grabUserFromSupabase, registerUserToSupabase } from "../services/auth.services.js"
+import { checkIfEmailInUse, grabUserFromSupabase, registerUserToSupabase, updateUserPassword } from "../services/auth.services.js"
+import { sendPasswordResetEmail } from "../services/email.services.js"
 
 const accessCookieOptions = {
     httpOnly: true,
@@ -138,4 +139,103 @@ export const logoutController = (req, res) => {
     res.set("Cache-Control", "no-store")
 
     return res.status(200).json({message:"Logout successful"})
+}
+
+const passwordResetResponse = {
+    message:"If an account exists for that email, a password reset link is on its way."
+}
+
+const passwordMeetsRequirements = (password) =>
+    password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password)
+
+export const forgotPasswordController = async (req, res) => {
+    const email = String(req.body.email || "").trim()
+
+    if (!email) {
+        return res.status(200).json(passwordResetResponse)
+    }
+
+    try {
+        const user = await grabUserFromSupabase(email)
+
+        if (user) {
+            const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET
+            const frontendUrl = process.env.FRONTEND_URL
+
+            if (!accessTokenSecret || !frontendUrl) {
+                throw new Error("ACCESS_TOKEN_SECRET and FRONTEND_URL must be configured")
+            }
+
+            const token = jwt.sign(
+                {
+                    userId:user.id,
+                    email:user.email,
+                    purpose:"password-reset"
+                },
+                accessTokenSecret,
+                {expiresIn:"15m"}
+            )
+            const resetUrl = new URL("/reset-password", frontendUrl)
+            resetUrl.searchParams.set("token", token)
+
+            await sendPasswordResetEmail({
+                to:user.email,
+                firstName:user.first_name,
+                resetUrl:resetUrl.toString()
+            })
+        }
+    } catch (error) {
+        console.error("Could not send password reset email", error)
+    }
+
+    return res.status(200).json(passwordResetResponse)
+}
+
+export const resetPasswordController = async (req, res) => {
+    const token = String(req.body.token || "")
+    const password = String(req.body.password || "")
+    const confirmPassword = String(req.body.confirmPassword || "")
+    const accessTokenSecret = process.env.ACCESS_TOKEN_SECRET
+
+    if (!token || !accessTokenSecret) {
+        return res.status(400).json({message:"This reset link is invalid or has expired."})
+    }
+
+    if (password !== confirmPassword) {
+        return res.status(400).json({message:"Passwords do not match."})
+    }
+
+    if (!passwordMeetsRequirements(password)) {
+        return res.status(400).json({message:"Use at least 8 characters with uppercase, lowercase, and a number."})
+    }
+
+    try {
+        const decoded = jwt.verify(token, accessTokenSecret)
+
+        if (decoded.purpose !== "password-reset" || !decoded.userId) {
+            return res.status(400).json({message:"This reset link is invalid or has expired."})
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10)
+        const updatedUser = await updateUserPassword(decoded.userId, hashedPassword)
+
+        if (updatedUser.error) {
+            console.error("Could not update password", updatedUser.error)
+
+            return res.status(500).json({message:"Could not reset your password. Please try again."})
+        }
+
+        res.clearCookie("accessToken", clearCookieOptions)
+        res.clearCookie("refreshToken", clearCookieOptions)
+
+        return res.status(200).json({message:"Password reset successfully. You can now log in."})
+    } catch (error) {
+        if (error instanceof jwt.TokenExpiredError || error instanceof jwt.JsonWebTokenError) {
+            return res.status(400).json({message:"This reset link is invalid or has expired."})
+        }
+
+        console.error("Could not reset password", error)
+
+        return res.status(500).json({message:"Could not reset your password. Please try again."})
+    }
 }
