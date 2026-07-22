@@ -12,6 +12,7 @@ import {
     X
 } from "lucide-react"
 import { apiFetch, BASEURL } from "../URL"
+import { MEMBERSHIP_UPDATED_EVENT } from "../membership"
 
 type AnalysisType = "strength_trend" | "completed_workout" | "weekly_recap"
 
@@ -113,9 +114,11 @@ function ProCoach() {
         }
 
         loadMembership()
+        window.addEventListener(MEMBERSHIP_UPDATED_EVENT, loadMembership)
 
         return () => {
             active = false
+            window.removeEventListener(MEMBERSHIP_UPDATED_EVENT, loadMembership)
         }
     }, [])
 

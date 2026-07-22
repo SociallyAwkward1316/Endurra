@@ -7,6 +7,8 @@ import AnalyticsRouter from "./routes/analytics.routes.js"
 import ProfileRouter from "./routes/profile.routes.js"
 import StreakRouter from "./routes/streak.routes.js"
 import CoachRouter from "./routes/coach.routes.js"
+import BillingRouter from "./routes/billing.routes.js"
+import { stripeWebhookController } from "./controllers/billing.controller.js"
 import errorhandler from "./middleware/errorhandler.js"
 import cookieParser from "cookie-parser"
 import cors from "cors"
@@ -18,6 +20,7 @@ const PORT = process.env.PORT || 3000
 
 
 const app = express()
+app.post("/billing/webhook", express.raw({type:"application/json"}), stripeWebhookController)
 app.use(express.json())
 app.use(cookieParser())
 app.use(cors(corsOptions))
@@ -29,6 +32,7 @@ app.use("/analytics", tokenAuthentication, AnalyticsRouter)
 app.use("/profile", tokenAuthentication, ProfileRouter)
 app.use("/streaks", tokenAuthentication, StreakRouter)
 app.use("/coach", tokenAuthentication, proOnly, CoachRouter)
+app.use("/billing", tokenAuthentication, BillingRouter)
 
 
 app.listen(PORT, () => {

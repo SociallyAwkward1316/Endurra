@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
-import { Activity, Save, Target, User } from "lucide-react"
+import { Activity, Bot, ChartNoAxesCombined, Check, CreditCard, Crown, Dumbbell, LoaderCircle, Save, Target, User } from "lucide-react"
 import Navbar from "../components/Navbar"
 import { BASEURL, apiFetch } from "../URL"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
+import { MEMBERSHIP_UPDATED_EVENT } from "../membership"
 
 type UserProfile = {
     id: number
@@ -10,7 +11,15 @@ type UserProfile = {
     email: string
     first_name: string
     last_name: string
+    is_pro?: boolean
     created_at?: string
+}
+
+type BillingStatus = {
+    isPro: boolean
+    subscriptionStatus: string | null
+    currentPeriodEnd: string | null
+    canManageBilling: boolean
 }
 
 type NutritionProfile = {
@@ -30,6 +39,7 @@ type NutritionProfile = {
 
 function Profile() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [user, setUser] = useState<UserProfile | null>(null)
     const [nutritionProfile, setNutritionProfile] = useState<NutritionProfile | null>(null)
     const [loading, setLoading] = useState(true)
@@ -37,6 +47,10 @@ function Profile() {
     const [savingNutrition, setSavingNutrition] = useState(false)
     const [userMessage, setUserMessage] = useState("")
     const [nutritionMessage, setNutritionMessage] = useState("")
+    const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
+    const [billingLoading, setBillingLoading] = useState(true)
+    const [billingAction, setBillingAction] = useState<"checkout" | "portal" | null>(null)
+    const [billingMessage, setBillingMessage] = useState("")
 
     const fetchProfile = useCallback(async () => {
         setLoading(true)
@@ -54,13 +68,97 @@ function Profile() {
         setLoading(false)
     }, [])
 
+    const fetchBillingStatus = useCallback(async (showLoading = true) => {
+        if (showLoading) {
+            setBillingLoading(true)
+        }
+
+        try {
+            const response = await apiFetch(`${BASEURL}/billing/status`, {
+                method: "GET",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" }
+            })
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.message || "Could not load membership status.")
+            }
+
+            setBillingStatus(data)
+            return data as BillingStatus
+        } catch (error) {
+            setBillingMessage(error instanceof Error ? error.message : "Could not load membership status.")
+            return null
+        } finally {
+            if (showLoading) {
+                setBillingLoading(false)
+            }
+        }
+    }, [])
+
     useEffect(() => {
         const loadProfile = async () => {
-            await fetchProfile()
+            await Promise.all([fetchProfile(), fetchBillingStatus()])
         }
 
         loadProfile()
-    }, [fetchProfile])
+    }, [fetchBillingStatus, fetchProfile])
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        const billingResult = params.get("billing")
+        const shouldFocusMembership = billingResult || params.get("section") === "membership"
+        let canceled = false
+
+        if (shouldFocusMembership) {
+            window.setTimeout(() => {
+                document.getElementById("membership")?.scrollIntoView({behavior:"smooth", block:"center"})
+            }, 100)
+        }
+
+        if (billingResult === "canceled") {
+            window.setTimeout(() => setBillingMessage("Checkout canceled. Nothing was charged."), 0)
+        }
+
+        if (billingResult === "success") {
+            window.setTimeout(() => setBillingMessage("Payment received. Activating Endurra Pro..."), 0)
+
+            const confirmMembership = async () => {
+                for (let attempt = 0; attempt < 6 && !canceled; attempt += 1) {
+                    const status = await fetchBillingStatus(false)
+
+                    if (status?.isPro) {
+                        await apiFetch(`${BASEURL}/auth/session`, {
+                            method:"GET",
+                            credentials:"include",
+                            headers:{"Content-Type":"application/json"}
+                        })
+
+                        if (!canceled) {
+                            setUser((currentUser) => currentUser ? {...currentUser, is_pro:true} : currentUser)
+                            setBillingMessage("Endurra Pro is active. Your AI Coach is ready.")
+                            window.dispatchEvent(new Event(MEMBERSHIP_UPDATED_EVENT))
+                        }
+
+                        return
+                    }
+
+                    await new Promise((resolve) => window.setTimeout(resolve, 1500))
+                }
+
+                if (!canceled) {
+                    setBillingMessage("Payment succeeded. Stripe is still confirming your membership; refresh in a moment.")
+                }
+            }
+
+            confirmMembership()
+        }
+
+        return () => {
+            canceled = true
+        }
+    }, [fetchBillingStatus, location.search])
 
     const updateUserField = (field: keyof UserProfile, value: string) => {
         if (!user) {
@@ -147,6 +245,33 @@ function Profile() {
         setSavingNutrition(false)
     }
 
+    const redirectToBillingUrl = async (path: "checkout" | "portal") => {
+        setBillingAction(path)
+        setBillingMessage("")
+
+        try {
+            const response = await apiFetch(`${BASEURL}/billing/${path}`, {
+                method:"POST",
+                credentials:"include",
+                headers:{"Content-Type":"application/json"}
+            })
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.message || "Could not open Stripe billing.")
+            }
+
+            if (!data.url || typeof data.url !== "string") {
+                throw new Error("Stripe did not return a billing URL.")
+            }
+
+            window.location.assign(data.url)
+        } catch (error) {
+            setBillingMessage(error instanceof Error ? error.message : "Could not open Stripe billing.")
+            setBillingAction(null)
+        }
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#171B1F] text-[#F8FAFC] md:pl-64">
@@ -180,6 +305,106 @@ function Profile() {
                             <p className="mt-2 max-w-xl text-sm leading-6 text-[#94A3B8] md:text-base">
                                 Manage your account details and nutrition targets.
                             </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    id="membership"
+                    className="relative mb-6 overflow-hidden rounded-[28px] border border-[#2DDE85]/25 bg-[#1E242B] shadow-xl shadow-black/10"
+                >
+                    <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-[#2DDE85]/10 blur-3xl" />
+                    <div className="relative grid gap-6 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center lg:p-8">
+                        <div>
+                            <div className="mb-4 flex flex-wrap items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#2DDE85]/25 bg-[#2DDE85]/10 text-[#2DDE85]">
+                                    <Crown size={23} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#2DDE85]">Membership</p>
+                                    <h2 className="text-2xl font-bold text-white sm:text-3xl">Endurra Pro</h2>
+                                </div>
+                                {!billingLoading && (
+                                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                                        billingStatus?.isPro || user?.is_pro
+                                            ? "border-[#2DDE85]/30 bg-[#2DDE85]/10 text-[#2DDE85]"
+                                            : "border-[#313A45] bg-[#171B1F] text-[#94A3B8]"
+                                    }`}>
+                                        {billingStatus?.isPro || user?.is_pro ? "Active" : "Free plan"}
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="max-w-2xl text-sm leading-6 text-[#94A3B8] sm:text-base">
+                                Turn your workout and nutrition history into focused coaching you can actually use.
+                            </p>
+
+                            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                                <MembershipFeature icon={ChartNoAxesCombined} label="Strength Trend Analysis" />
+                                <MembershipFeature icon={Dumbbell} label="Completed Workout Review" />
+                                <MembershipFeature icon={Bot} label="Weekly Coach Recap" />
+                            </div>
+                        </div>
+
+                        <div className="min-w-full rounded-2xl border border-[#313A45] bg-[#171B1F]/90 p-5 lg:min-w-[280px]">
+                            <div className="flex items-end gap-1">
+                                <span className="text-4xl font-black tracking-tight text-white">$6.99</span>
+                                <span className="pb-1 text-sm text-[#6B7280]">/ month</span>
+                            </div>
+                            <p className="mt-2 text-xs leading-5 text-[#6B7280]">
+                                Recurring monthly membership. Manage or cancel through Stripe at any time.
+                            </p>
+
+                            {billingStatus?.currentPeriodEnd && billingStatus.isPro && (
+                                <p className="mt-3 flex items-center gap-2 text-xs text-[#94A3B8]">
+                                    <Check size={14} className="text-[#2DDE85]" />
+                                    Current billing period through {new Intl.DateTimeFormat(undefined, {dateStyle:"medium"}).format(new Date(billingStatus.currentPeriodEnd))}
+                                </p>
+                            )}
+
+                            {billingStatus?.subscriptionStatus && (
+                                <p className="mt-2 text-xs capitalize text-[#6B7280]">
+                                    Stripe status: {billingStatus.subscriptionStatus.replaceAll("_", " ")}
+                                </p>
+                            )}
+
+                            {billingStatus?.isPro || user?.is_pro ? (
+                                billingStatus?.canManageBilling ? (
+                                    <button
+                                        onClick={() => redirectToBillingUrl("portal")}
+                                        disabled={billingAction !== null}
+                                        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#3A4652] bg-[#232A32] px-5 py-3 font-semibold text-white transition hover:border-[#2DDE85]/45 hover:bg-[#29323B] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {billingAction === "portal" ? <LoaderCircle size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                                        {billingAction === "portal" ? "Opening Stripe..." : "Manage billing"}
+                                    </button>
+                                ) : (
+                                    <div className="mt-5 rounded-2xl border border-[#2DDE85]/20 bg-[#2DDE85]/8 px-4 py-3 text-sm text-[#B7F7D3]">
+                                        Your Pro access is active. This account is not connected to a Stripe subscription.
+                                    </div>
+                                )
+                            ) : (
+                                <button
+                                    onClick={() => redirectToBillingUrl("checkout")}
+                                    disabled={billingLoading || billingAction !== null}
+                                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2DDE85] px-5 py-3 font-bold text-black shadow-lg shadow-[#2DDE85]/20 transition hover:bg-[#25C876] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {billingAction === "checkout" ? <LoaderCircle size={18} className="animate-spin" /> : <Crown size={18} />}
+                                    {billingAction === "checkout" ? "Opening checkout..." : "Upgrade with Stripe"}
+                                </button>
+                            )}
+
+                            {billingMessage && (
+                                <p className={`mt-3 text-sm ${
+                                    billingMessage.includes("active") || billingMessage.includes("received")
+                                        ? "text-[#2DDE85]"
+                                        : billingMessage.includes("canceled") || billingMessage.includes("confirming")
+                                            ? "text-amber-300"
+                                            : "text-red-300"
+                                }`}>
+                                    {billingMessage}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -350,6 +575,22 @@ function ProfileInput({ label, value, type = "text", onChange }: ProfileInputPro
 type ProfileStatProps = {
     label: string
     value: string | number
+}
+
+type MembershipFeatureProps = {
+    icon: React.ComponentType<{ size?: number, className?: string }>
+    label: string
+}
+
+function MembershipFeature({ icon: Icon, label }: MembershipFeatureProps) {
+    return (
+        <div className="flex items-center gap-3 rounded-2xl border border-[#2A3138] bg-[#171B1F]/75 px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2DDE85]/10 text-[#2DDE85]">
+                <Icon size={17} />
+            </span>
+            <span className="text-sm font-medium leading-5 text-[#CBD5E1]">{label}</span>
+        </div>
+    )
 }
 
 function ProfileStat({ label, value }: ProfileStatProps) {

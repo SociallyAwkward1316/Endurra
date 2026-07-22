@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "openai": "^6.48.0",
     "resend": "^6.17.2",
+    "stripe": "^22.3.2",
     "ws": "^8.21.1"
   },
   "devDependencies": {
