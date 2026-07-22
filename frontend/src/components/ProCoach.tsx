@@ -200,8 +200,7 @@ function ProCoach() {
                 aria-label="Open Endurra AI Coach"
             >
                 <span className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-[#2DDE85] text-[#08110C] shadow-lg shadow-[#2DDE85]/20">
-                    <Sparkles size={17} />
-                    <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#17221D] bg-amber-300" />
+                    <Bot size={18} />
                 </span>
                 <span className="hidden sm:block">AI Coach</span>
                 <Crown size={14} className="hidden text-amber-300 sm:block" />

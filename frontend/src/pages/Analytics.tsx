@@ -7,7 +7,6 @@ import {
     Dumbbell,
     Gauge,
     Search,
-    Sparkles,
     Target,
     Trophy
 } from "lucide-react"
@@ -483,8 +482,7 @@ function Analytics() {
                 <section className="mb-6 overflow-hidden rounded-[28px] border border-[#2A3138] bg-[#1E242B] shadow-2xl shadow-black/20">
                     <div className="flex flex-col gap-7 p-5 sm:p-6 md:flex-row md:items-center md:justify-between md:p-8">
                         <div>
-                            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#2DDE85]/25 bg-[#2DDE85]/10 px-3 py-1 text-sm font-medium text-[#2DDE85]">
-                                <Sparkles size={16} />
+                            <div className="mb-4 inline-flex items-center rounded-full border border-[#2DDE85]/25 bg-[#2DDE85]/10 px-3 py-1 text-sm font-medium text-[#2DDE85]">
                                 Training analytics
                             </div>
 
