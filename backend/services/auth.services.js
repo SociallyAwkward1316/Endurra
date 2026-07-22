@@ -36,7 +36,7 @@ export const updateUserPassword = async (userId, password) => {
 export const getUserById = async (userId) => {
     return supabase
         .from("Users")
-        .select("id, username, email, first_name, last_name, created_at")
+        .select("id, username, email, first_name, last_name, is_pro, created_at")
         .eq("id", userId)
         .single()
 }
@@ -46,6 +46,6 @@ export const updateUserById = async (userId, userData) => {
         .from("Users")
         .update(userData)
         .eq("id", userId)
-        .select("id, username, email, first_name, last_name, created_at")
+        .select("id, username, email, first_name, last_name, is_pro, created_at")
         .single()
 }

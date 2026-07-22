@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import "dotenv/config"
-import { checkIfEmailInUse, grabUserFromSupabase, registerUserToSupabase, updateUserPassword } from "../services/auth.services.js"
+import { checkIfEmailInUse, getUserById, grabUserFromSupabase, registerUserToSupabase, updateUserPassword } from "../services/auth.services.js"
 import { sendPasswordResetEmail } from "../services/email.services.js"
 
 const accessCookieOptions = {
@@ -15,6 +15,19 @@ const clearCookieOptions = {
     httpOnly: true,
     secure: true,
     sameSite: "lax"
+}
+
+const getTokenData = (user) => ({
+    userId:user.id,
+    email:user.email,
+    is_pro:Boolean(user.is_pro)
+})
+
+const setAccessTokenCookie = (res, user) => {
+    const token = jwt.sign(getTokenData(user), process.env.ACCESS_TOKEN_SECRET, {expiresIn:"60m"})
+    res.cookie("accessToken", token, accessCookieOptions)
+
+    return token
 }
 
 export const signupController = async (req, res) => {
@@ -34,13 +47,18 @@ export const signupController = async (req, res) => {
         email: data.email,
         first_name: data.first_name,
         last_name: data.last_name,
-        password: hashedPassword
+        password: hashedPassword,
+        is_pro: false
     }
 
 
     const user = await registerUserToSupabase(userData)
 
-    return res.status(201).json(user.data)
+    if (user.error) {
+        return res.status(500).json({message:"Could not create account"})
+    }
+
+    return res.status(201).json({message:"Account created"})
 }
 
 
@@ -55,8 +73,8 @@ export const loginController = async (req, res) => {
     const authenticationCheck = await bcrypt.compare(password, user.password)
 
     if (authenticationCheck === true) {
-        const accessToken = jwt.sign({userId:user.id, email:user.email}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "60m"})
-        const refreshToken = jwt.sign({userId:user.id, email:user.email}, process.env.REFRESH_TOKEN_SECRET, {expiresIn: "30D"})
+        const accessToken = jwt.sign(getTokenData(user), process.env.ACCESS_TOKEN_SECRET, {expiresIn: "60m"})
+        const refreshToken = jwt.sign(getTokenData(user), process.env.REFRESH_TOKEN_SECRET, {expiresIn: "30D"})
 
         res.cookie("accessToken", accessToken, accessCookieOptions)
 
@@ -67,7 +85,7 @@ export const loginController = async (req, res) => {
             maxAge: 30 * 24 * 60 * 60 * 1000
         })
 
-        res.status(200).json({message:"Login Success", tokens:{access:accessToken, refresh:refreshToken}})
+        res.status(200).json({message:"Login Success", authenticated:true, isPro:Boolean(user.is_pro)})
     } else {
         res.status(403).json({message: "Password Invalid"})
     }
@@ -76,34 +94,46 @@ export const loginController = async (req, res) => {
 
 export const refreshController = async (req, res) => {
     const refreshToken = req.cookies.refreshToken
-    if (refreshToken) {
-
-        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
-            if (err) {
-                return res.status(401).json({message:"Refresh token invalid"})
-            } else {
-                const data = {userId:decoded.userId, email:decoded.email}
-                const newAccessToken = jwt.sign(data, process.env.ACCESS_TOKEN_SECRET, {expiresIn: "60m"})
-                res.cookie("accessToken", newAccessToken, accessCookieOptions)
-
-                res.status(200).json({message:"Token refreshed"})
-            }
-        })
-    } else {
+    if (!refreshToken) {
         return res.status(401).json({message:"Refresh token not found"})
+    }
+
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET)
+        const user = await getUserById(decoded.userId)
+
+        if (user.error || !user.data) {
+            return res.status(401).json({message:"User session not found"})
+        }
+
+        setAccessTokenCookie(res, user.data)
+
+        return res.status(200).json({message:"Token refreshed", isPro:Boolean(user.data.is_pro)})
+    } catch {
+        return res.status(401).json({message:"Refresh token invalid"})
     }
 }
 
-export const sessionController = (req, res) => {
+export const sessionController = async (req, res) => {
     const accessToken = req.cookies.accessToken
     const refreshToken = req.cookies.refreshToken
 
     if (accessToken) {
         try {
-            jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
+            const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET)
+            const user = await getUserById(decoded.userId)
+
+            if (user.error || !user.data) {
+                throw new Error("User session not found")
+            }
+
+            if (Boolean(decoded.is_pro) !== Boolean(user.data.is_pro) || decoded.email !== user.data.email) {
+                setAccessTokenCookie(res, user.data)
+            }
+
             res.set("Cache-Control", "no-store")
 
-            return res.status(200).json({authenticated:true})
+            return res.status(200).json({authenticated:true, isPro:Boolean(user.data.is_pro)})
         } catch {
             // A valid refresh token below can restore the session.
         }
@@ -115,16 +145,16 @@ export const sessionController = (req, res) => {
 
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET)
-        const newAccessToken = jwt.sign(
-            {userId:decoded.userId, email:decoded.email},
-            process.env.ACCESS_TOKEN_SECRET,
-            {expiresIn:"60m"}
-        )
+        const user = await getUserById(decoded.userId)
 
-        res.cookie("accessToken", newAccessToken, accessCookieOptions)
+        if (user.error || !user.data) {
+            throw new Error("User session not found")
+        }
+
+        setAccessTokenCookie(res, user.data)
         res.set("Cache-Control", "no-store")
 
-        return res.status(200).json({authenticated:true})
+        return res.status(200).json({authenticated:true, isPro:Boolean(user.data.is_pro)})
     } catch {
         res.clearCookie("accessToken", clearCookieOptions)
         res.clearCookie("refreshToken", clearCookieOptions)

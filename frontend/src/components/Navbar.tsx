@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { BASEURL, apiFetch } from "../URL"
 import { fetchUserStreak, STREAKS_UPDATED_EVENT } from "../streaks"
 import type { UserStreak } from "../streaks"
+import ProCoach from "./ProCoach"
 
 type NavItem = {
     label: string
@@ -123,6 +124,8 @@ function Navbar() {
 
     return (
         <>
+            <ProCoach />
+
             <button
                 className="fixed left-4 top-4 z-50 rounded-xl border border-[#2A3138] bg-[#111418]/95 p-2.5 text-[#CBD5E1] shadow-lg shadow-black/20 backdrop-blur md:hidden"
                 onClick={() => setSidebarOpen(!sidebarOpen)}

@@ -6,11 +6,13 @@ import CalTrackerRouter from "./routes/caltracker.routes.js"
 import AnalyticsRouter from "./routes/analytics.routes.js"
 import ProfileRouter from "./routes/profile.routes.js"
 import StreakRouter from "./routes/streak.routes.js"
+import CoachRouter from "./routes/coach.routes.js"
 import errorhandler from "./middleware/errorhandler.js"
 import cookieParser from "cookie-parser"
 import cors from "cors"
 import { corsOptions } from "./middleware/corsOptions.js"
 import tokenAuthentication from "./middleware/tokenAuthentication.js"
+import proOnly from "./middleware/proOnly.js"
 
 const PORT = process.env.PORT || 3000
 
@@ -26,6 +28,7 @@ app.use("/caltracker", tokenAuthentication, CalTrackerRouter)
 app.use("/analytics", tokenAuthentication, AnalyticsRouter)
 app.use("/profile", tokenAuthentication, ProfileRouter)
 app.use("/streaks", tokenAuthentication, StreakRouter)
+app.use("/coach", tokenAuthentication, proOnly, CoachRouter)
 
 
 app.listen(PORT, () => {
