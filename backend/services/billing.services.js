@@ -293,6 +293,7 @@ export const createCheckoutSession = async (userId) => {
             customer:customerId,
             client_reference_id:String(user.id),
             line_items:[{price:getConfiguredPriceId(), quantity:1}],
+            allow_promotion_codes:true,
             success_url:`${getFrontendUrl()}/profile?billing=success`,
             cancel_url:`${getFrontendUrl()}/profile?billing=canceled`,
             metadata:{
