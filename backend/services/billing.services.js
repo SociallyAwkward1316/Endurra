@@ -263,6 +263,7 @@ const findOpenCheckoutSession = async (customerId, userId) => {
 
     return sessions.data.find((session) =>
         session.mode === "subscription" &&
+        session.allow_promotion_codes === true &&
         session.metadata?.userId === String(userId) &&
         session.metadata?.priceId === getConfiguredPriceId() &&
         session.url
@@ -307,7 +308,7 @@ export const createCheckoutSession = async (userId) => {
                 }
             }
         },
-        {idempotencyKey:`endurra-checkout-${user.id}-${new Date().toISOString().slice(0, 13)}`}
+        {idempotencyKey:`endurra-checkout-v2-${user.id}-${new Date().toISOString().slice(0, 13)}`}
     )
 }
 
