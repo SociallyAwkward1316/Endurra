@@ -27,6 +27,54 @@ const MUSCLE_PATTERNS = [
     }
 ]
 
+const RECOVERY_MUSCLE_CONFIG = [
+    {
+        muscle:"Chest",
+        baseHours:36,
+        terms:["chest", "pec", "bench", "push up", "pushup", "fly", "incline", "decline"]
+    },
+    {
+        muscle:"Back",
+        baseHours:48,
+        terms:["back", "lat", "row", "pulldown", "pull down", "pull up", "pullup", "chin up", "chinup", "deadlift", "trap"]
+    },
+    {
+        muscle:"Legs",
+        baseHours:48,
+        terms:["leg", "quad", "hamstring", "squat", "lunge", "romanian", "rdl"]
+    },
+    {
+        muscle:"Glutes",
+        baseHours:36,
+        terms:["glute", "hip thrust", "hip bridge"]
+    },
+    {
+        muscle:"Shoulders",
+        baseHours:36,
+        terms:["shoulder", "delt", "overhead", "military", "arnold", "lateral raise", "front raise", "rear delt"]
+    },
+    {
+        muscle:"Triceps",
+        baseHours:24,
+        terms:["tricep", "skullcrusher", "skull crusher", "pushdown", "dip", "close grip"]
+    },
+    {
+        muscle:"Biceps",
+        baseHours:24,
+        terms:["bicep", "curl", "hammer curl", "preacher"]
+    },
+    {
+        muscle:"Core",
+        baseHours:24,
+        terms:["core", "ab", "oblique", "plank", "crunch"]
+    },
+    {
+        muscle:"Calves",
+        baseHours:24,
+        terms:["calf", "calves"]
+    }
+]
+
 const inferPrimaryMuscle = (exerciseName) => {
     const normalizedName = exerciseName.toLowerCase()
     const match = MUSCLE_PATTERNS.find((pattern) =>
@@ -36,10 +84,131 @@ const inferPrimaryMuscle = (exerciseName) => {
     return match?.muscle || "Other"
 }
 
+const getRecoveryMuscle = (exercise = {}) => {
+    const normalizedExercise = exercise || {}
+    const explicitMuscle = String(normalizedExercise.primary_muscle || "").trim()
+    const explicitMatch = RECOVERY_MUSCLE_CONFIG.find((config) =>
+        config.terms.some((term) => explicitMuscle.toLowerCase().includes(term))
+    )
+
+    if (explicitMatch) {
+        return explicitMatch
+    }
+
+    const exerciseName = String(normalizedExercise.name || "").toLowerCase()
+    const nameMatch = RECOVERY_MUSCLE_CONFIG.find((config) =>
+        config.terms.some((term) => exerciseName.includes(term))
+    )
+
+    return nameMatch || {
+        muscle:explicitMuscle && explicitMuscle.toLowerCase() !== "other"
+            ? explicitMuscle
+            : "Full body",
+        baseHours:36
+    }
+}
+
+const getRecoveryHours = (baseHours, setCount) => {
+    const volumeBonus = setCount >= 10 ? 24 : setCount >= 6 ? 12 : 0
+
+    return Math.min(72, baseHours + volumeBonus)
+}
+
 export const getAllUserWorkouts = async (userId) => {
     const workouts = await supabase.from("Workouts").select("*").eq("user_id", userId).order("created_at", { ascending: false });
 
     return workouts
+}
+
+export const getRecentMuscleRecovery = async (userId) => {
+    const workouts = await supabase
+        .from("Workouts")
+        .select(`
+            id,
+            name,
+            created_at,
+            WorkoutExercises (
+                Exercises (name, primary_muscle),
+                Sets (id)
+            )
+        `)
+        .eq("user_id", userId)
+        .order("created_at", {ascending:false})
+        .limit(10)
+
+    if (workouts.error) {
+        return workouts
+    }
+
+    const now = Date.now()
+    const latestMuscleSessions = new Map()
+    const recentWorkouts = (workouts.data || [])
+        .filter((workout) =>
+            (workout.WorkoutExercises || []).some((workoutExercise) => workoutExercise.Sets?.length)
+        )
+        .slice(0, 3)
+
+    recentWorkouts.forEach((workout) => {
+        const trainedAt = Date.parse(workout.created_at)
+
+        if (!Number.isFinite(trainedAt)) {
+            return
+        }
+
+        const workoutMuscles = new Map()
+        const workoutExercises = workout.WorkoutExercises || []
+
+        workoutExercises.forEach((workoutExercise) => {
+            const setCount = workoutExercise.Sets?.length || 0
+
+            if (!setCount) {
+                return
+            }
+
+            const recoveryMuscle = getRecoveryMuscle(workoutExercise.Exercises)
+            const current = workoutMuscles.get(recoveryMuscle.muscle) || {
+                baseHours:recoveryMuscle.baseHours,
+                setCount:0
+            }
+
+            current.setCount += setCount
+            workoutMuscles.set(recoveryMuscle.muscle, current)
+        })
+
+        workoutMuscles.forEach((muscleSession, muscle) => {
+            if (latestMuscleSessions.has(muscle)) {
+                return
+            }
+
+            const recoveryHours = getRecoveryHours(muscleSession.baseHours, muscleSession.setCount)
+            const elapsedHours = Math.max(0, (now - trainedAt) / (60 * 60 * 1000))
+            const remainingHours = Math.max(0, Math.ceil(recoveryHours - elapsedHours))
+
+            latestMuscleSessions.set(muscle, {
+                muscle,
+                workoutId:workout.id,
+                workoutName:workout.name || "Workout",
+                trainedAt:workout.created_at,
+                setCount:muscleSession.setCount,
+                recoveryHours,
+                remainingHours,
+                recoveryPercent:Math.min(100, Math.max(0, Math.round((elapsedHours / recoveryHours) * 100))),
+                readyAt:new Date(trainedAt + (recoveryHours * 60 * 60 * 1000)).toISOString(),
+                status:remainingHours === 0 ? "ready" : remainingHours <= 12 ? "nearly_ready" : "recovering"
+            })
+        })
+    })
+
+    const muscleRecovery = Array.from(latestMuscleSessions.values())
+        .sort((a, b) => b.remainingHours - a.remainingHours || Date.parse(b.trainedAt) - Date.parse(a.trainedAt))
+
+    return {
+        data:{
+            workoutCount:recentWorkouts.length,
+            muscleRecovery
+        },
+        error:null
+    }
 }
 
 export const postUserWorkout = async (workoutName, userId) => {

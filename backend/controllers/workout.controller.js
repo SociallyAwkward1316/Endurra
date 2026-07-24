@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { getAllUserWorkouts, getExerciseBestWeight, getUserWorkoutDetail, postSet, postUserWorkout, deleteSet, getExerciseList, postExerciseToWorkout, deleteExerciseFromWorkout, deleteUserWorkout, createUserExercise} from "../services/workout.services.js"
+import { getAllUserWorkouts, getExerciseBestWeight, getRecentMuscleRecovery, getUserWorkoutDetail, postSet, postUserWorkout, deleteSet, getExerciseList, postExerciseToWorkout, deleteExerciseFromWorkout, deleteUserWorkout, createUserExercise} from "../services/workout.services.js"
 import { updateUserStreak } from "../services/streak.services.js"
 
 export const getUserWorkouts = async (req, res) => {
@@ -12,6 +12,18 @@ export const getUserWorkouts = async (req, res) => {
 
     return res.status(200).json({data:workouts.data})
     
+}
+
+export const getMuscleRecovery = async (req, res) => {
+    const recovery = await getRecentMuscleRecovery(req.user.userId)
+
+    if (recovery.error) {
+        return res.status(500).json({message:recovery.error.message})
+    }
+
+    res.set("Cache-Control", "no-store")
+
+    return res.status(200).json(recovery.data)
 }
 
 export const createUserWorkout = async (req,res) => {
