@@ -37,7 +37,7 @@ const getCoachErrorResponse = (error) => {
         return {
             status:503,
             body:{
-                code:"AI_UNAVAILABLE",
+                code:error.code || "AI_UNAVAILABLE",
                 message:error.message || "AI Coach is temporarily unavailable."
             }
         }
@@ -102,6 +102,7 @@ export const createCoachAnalysis = async (req, res) => {
             status:error.status || null,
             code:error.code || null,
             type:error.type || null,
+            reason:error.reason || null,
             message:error.message || "Unknown coach error"
         })
         const response = getCoachErrorResponse(error)
