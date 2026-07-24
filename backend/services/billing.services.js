@@ -105,6 +105,25 @@ export const validateConfiguredPrice = async () => {
             })
             .catch((error) => {
                 validatedPricePromise = null
+
+                if (error instanceof BillingError) {
+                    throw error
+                }
+
+                if (error?.type === "StripeAuthenticationError") {
+                    throw new BillingError(
+                        "Stripe rejected STRIPE_SECRET_KEY. Use the backend live secret key that starts with sk_live_ for production.",
+                        503
+                    )
+                }
+
+                if (error?.code === "resource_missing") {
+                    throw new BillingError(
+                        "Stripe could not find STRIPE_PRICE_ID with the configured secret key. Make sure both values come from the same Stripe account and are both live mode or both test mode.",
+                        503
+                    )
+                }
+
                 throw error
             })
     }
@@ -219,13 +238,22 @@ const retrieveCurrentSubscription = async (subscription) => {
 
 const getOrCreateStripeCustomer = async (user) => {
     if (user.stripe_customer_id) {
-        await getStripe().customers.update(user.stripe_customer_id, {
-            email:user.email,
-            name:[user.first_name, user.last_name].filter(Boolean).join(" ") || undefined,
-            metadata:{userId:String(user.id)}
-        })
+        try {
+            await getStripe().customers.update(user.stripe_customer_id, {
+                email:user.email,
+                name:[user.first_name, user.last_name].filter(Boolean).join(" ") || undefined,
+                metadata:{userId:String(user.id)}
+            })
 
-        return user.stripe_customer_id
+            return user.stripe_customer_id
+        } catch (error) {
+            if (error?.code !== "resource_missing") {
+                throw error
+            }
+
+            // A customer created in Stripe test mode does not exist in live mode.
+            // Create the live customer below and replace the stale stored ID.
+        }
     }
 
     const customer = await getStripe().customers.create(

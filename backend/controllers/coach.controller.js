@@ -43,6 +43,16 @@ const getCoachErrorResponse = (error) => {
         }
     }
 
+    if (Number(error.status) >= 400 && Number(error.status) < 500) {
+        return {
+            status:Number(error.status),
+            body:{
+                code:"AI_REQUEST_ERROR",
+                message:error.message || "Could not prepare this coach analysis."
+            }
+        }
+    }
+
     if (Number(error.status) >= 500) {
         return {
             status:503,
