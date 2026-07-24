@@ -193,7 +193,7 @@ function Login () {
                             Don&apos;t have an account?{" "}
                             <button
                                 className="font-semibold text-[#2DDE85] transition hover:text-[#25C876]"
-                                onClick={() => navigate("/")}
+                                onClick={() => navigate("/signup")}
                             >
                                 Sign up
                             </button>

@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
 
+const Landing = lazy(() => import('./pages/Landing'))
 const Signup = lazy(() => import('./pages/Signup'))
 const Login = lazy(() => import('./pages/Login'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
@@ -19,7 +20,8 @@ function App() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-slate-950" aria-label="Loading" />}>
       <Routes>
-        <Route path='/' element={<Signup />}/>
+        <Route path='/' element={<Landing />}/>
+        <Route path='/signup' element={<Signup />}/>
         <Route path='/login' element={<Login />}/>
         <Route path='/forgot-password' element={<ForgotPassword />}/>
         <Route path='/reset-password' element={<ResetPassword />}/>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { CalendarDays, Dumbbell, Plus, Search, Trash2, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
+import UpgradeLimitModal from "../components/UpgradeLimitModal"
 import { BASEURL, apiFetch } from "../URL.tsx"
 import { getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 
@@ -19,6 +20,8 @@ function WorkoutDash() {
     const [workoutToDelete, setWorkoutToDelete] = useState<Workout | null>(null)
     const [deletingWorkoutId, setDeletingWorkoutId] = useState<number | null>(null)
     const [creatingWorkout, setCreatingWorkout] = useState(false)
+    const [workoutCreateError, setWorkoutCreateError] = useState("")
+    const [showLimitModal, setShowLimitModal] = useState(false)
     const navigate = useNavigate()
 
     const fetchWorkouts = useCallback(async () => {
@@ -68,37 +71,58 @@ function WorkoutDash() {
         }
 
         setCreatingWorkout(true)
+        setWorkoutCreateError("")
 
-        const response = await apiFetch(`${BASEURL}/workout/create-workout`,
-            {
-                method: "POST",
-                credentials:"include",
-                headers:{"Content-Type":"application/json"},
-                body: JSON.stringify({
-                    workoutName:workoutName.trim(),
-                    activityDate:getLocalDateKey()
-                })
+        try {
+            const response = await apiFetch(`${BASEURL}/workout/create-workout`,
+                {
+                    method: "POST",
+                    credentials:"include",
+                    headers:{"Content-Type":"application/json"},
+                    body: JSON.stringify({
+                        workoutName:workoutName.trim(),
+                        activityDate:getLocalDateKey()
+                    })
+                }
+            )
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                if (data.code === "FREE_WORKOUT_LIMIT_REACHED") {
+                    setWorkoutName("")
+                    setShowModal(false)
+                    setShowLimitModal(true)
+
+                    return
+                }
+
+                setWorkoutCreateError(data.message || "Could not create this workout.")
+
+                return
             }
-        )
 
-        const data = await response.json()
-        const createdWorkout = data.data?.[0]
+            const createdWorkout = data.data?.[0]
 
-        if (data.streak) {
-            notifyStreaksUpdated()
+            if (data.streak) {
+                notifyStreaksUpdated()
+            }
+
+            setWorkoutName("")
+            setShowModal(false)
+
+            if (createdWorkout?.id) {
+                navigate(`/workoutDash/workoutDetail/${createdWorkout.id}`)
+
+                return
+            }
+
+            await fetchWorkouts()
+        } catch {
+            setWorkoutCreateError("Could not create this workout. Please try again.")
+        } finally {
+            setCreatingWorkout(false)
         }
-
-        setWorkoutName("")
-        setShowModal(false)
-        setCreatingWorkout(false)
-
-        if (createdWorkout?.id) {
-            navigate(`/workoutDash/workoutDetail/${createdWorkout.id}`)
-
-            return
-        }
-
-        await fetchWorkouts()
     }
 
     const handleWorkoutDelete = async () => {
@@ -144,7 +168,10 @@ function WorkoutDash() {
                         </div>
 
                         <button
-                            onClick={() => setShowModal(true)}
+                            onClick={() => {
+                                setWorkoutCreateError("")
+                                setShowModal(true)
+                            }}
                             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2DDE85] px-5 py-3 font-semibold text-black shadow-lg shadow-[#2DDE85]/20 transition hover:bg-[#25C876] sm:w-auto"
                         >
                             <Plus size={18} />
@@ -285,6 +312,12 @@ function WorkoutDash() {
                                 className="w-full rounded-2xl border border-[#313A45] bg-[#171B1F] px-4 py-3 text-white outline-none transition placeholder:text-[#6B7280] focus:border-[#2DDE85]"
                             />
 
+                            {workoutCreateError && (
+                                <p className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+                                    {workoutCreateError}
+                                </p>
+                            )}
+
                             <div className="mt-6 flex justify-end gap-3">
                                 <button
                                     onClick={() => setShowModal(false)}
@@ -338,6 +371,12 @@ function WorkoutDash() {
                     </div>
                 </div>
             )}
+
+            <UpgradeLimitModal
+                open={showLimitModal}
+                limitType="workouts"
+                onClose={() => setShowLimitModal(false)}
+            />
         </div>
     )
 }

@@ -37,50 +37,12 @@ type Workout = {
 
 type MuscleRecovery = {
     muscle: string
-    workoutId: number
-    workoutName: string
-    trainedAt: string
-    setCount: number
-    recoveryHours: number
     remainingHours: number
     recoveryPercent: number
-    readyAt: string
-    status: "ready" | "nearly_ready" | "recovering"
 }
 
 type RecoveryOverview = {
-    workoutCount: number
     muscleRecovery: MuscleRecovery[]
-}
-
-const formatWorkoutDate = (date: string) => {
-    const parsedDate = new Date(date)
-
-    if (Number.isNaN(parsedDate.getTime())) {
-        return "Recent workout"
-    }
-
-    return new Intl.DateTimeFormat(undefined, {
-        month:"short",
-        day:"numeric",
-        hour:"numeric",
-        minute:"2-digit"
-    }).format(parsedDate)
-}
-
-const recoveryStatus = {
-    ready:{
-        label:"Ready",
-        className:"border-[#2DDE85]/25 bg-[#2DDE85]/10 text-[#55E99A]"
-    },
-    nearly_ready:{
-        label:"Nearly ready",
-        className:"border-[#2DDE85]/20 bg-[#2DDE85]/5 text-[#9BE9BE]"
-    },
-    recovering:{
-        label:"Recovering",
-        className:"border-[#313A45] bg-[#171B1F] text-[#94A3B8]"
-    }
 }
 
 function Dashboard () {
@@ -215,8 +177,6 @@ function Dashboard () {
     const macroSummary = nutritionProfile
         ? `${nutritionProfile.protein}g protein / ${nutritionProfile.carbs}g carbs / ${nutritionProfile.fats}g fat`
         : "Create a nutrition profile to unlock goals"
-    const recoveringMuscles = recovery?.muscleRecovery.filter((muscle) => muscle.status !== "ready").length || 0
-    const readyMuscles = recovery?.muscleRecovery.filter((muscle) => muscle.status === "ready").length || 0
 
     return (
         <div className="min-h-screen bg-[#171B1F] text-[#F8FAFC] md:pl-64">
@@ -265,115 +225,58 @@ function Dashboard () {
                 </section>
 
                 {isPro && (
-                    <section className="mb-5 rounded-[24px] border border-[#2A3138] bg-[#1E242B] p-4 shadow-xl shadow-black/10 md:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <Crown size={17} className="text-[#2DDE85]" />
-                                    <h2 className="text-lg font-bold text-white">Muscle recovery</h2>
-                                </div>
-                                <p className="mt-1 text-xs leading-5 text-[#7E8994]">
-                                    Estimates from logged sets across up to three recent workouts.
-                                </p>
-                            </div>
-
-                            {!recoveryLoading && !recoveryError && (
-                                <div className="flex items-center gap-2 text-xs font-semibold">
-                                    <span className="rounded-full bg-[#2DDE85]/10 px-2.5 py-1 text-[#55E99A]">
-                                        {readyMuscles} ready
-                                    </span>
-                                    <span className="rounded-full border border-[#313A45] bg-[#171B1F] px-2.5 py-1 text-[#94A3B8]">
-                                        {recoveringMuscles} recovering
-                                    </span>
-                                </div>
-                            )}
+                    <section className="mb-5 rounded-[20px] border border-[#2A3138] bg-[#1E242B] p-3.5 shadow-xl shadow-black/10 md:p-4">
+                        <div className="flex items-center gap-2">
+                            <Crown size={16} className="text-[#2DDE85]" />
+                            <h2 className="text-base font-bold text-white">Muscle recovery</h2>
                         </div>
 
                         {recoveryLoading ? (
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                                 {[0, 1, 2].map((item) => (
-                                    <div key={item} className="h-32 animate-pulse rounded-[18px] border border-[#2A3138] bg-[#171B1F]" />
+                                    <div key={item} className="h-[58px] animate-pulse rounded-xl border border-[#2A3138] bg-[#171B1F]" />
                                 ))}
                             </div>
                         ) : recoveryError ? (
-                            <div className="mt-4 flex flex-col gap-3 rounded-[18px] border border-red-400/15 bg-red-400/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-red-200">{recoveryError}</p>
+                            <div className="mt-3 flex flex-col gap-2 rounded-xl border border-red-400/15 bg-red-400/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-xs text-red-200">{recoveryError}</p>
                                 <button
                                     type="button"
                                     onClick={fetchRecovery}
-                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300/20 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-300/10"
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-300/20 px-2.5 py-1.5 text-xs font-semibold text-red-100 transition hover:bg-red-300/10"
                                 >
-                                    <RefreshCw size={15} />
+                                    <RefreshCw size={13} />
                                     Try again
                                 </button>
                             </div>
                         ) : recovery?.muscleRecovery.length ? (
-                            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                {recovery.muscleRecovery.map((muscle) => {
-                                    const status = recoveryStatus[muscle.status]
-
-                                    return (
-                                        <button
-                                            type="button"
-                                            key={muscle.muscle}
-                                            onClick={() => navigate(`/workoutDash/workoutDetail/${muscle.workoutId}`)}
-                                            className="group rounded-[18px] border border-[#2A3138] bg-[#171B1F] p-3.5 text-left transition hover:border-[#3A4651] hover:bg-[#1A2026]"
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className="truncate text-sm font-bold text-white">{muscle.muscle}</p>
-                                                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${status.className}`}>
-                                                    {status.label}
-                                                </span>
-                                            </div>
-
-                                            <div className="mt-3 flex items-end justify-between gap-3">
-                                                <div>
-                                                    <p className="text-xl font-bold text-white">
-                                                        {muscle.remainingHours > 0 ? `${muscle.remainingHours} hrs` : "Ready now"}
-                                                    </p>
-                                                    <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[#64707B]">
-                                                        {muscle.remainingHours > 0 ? "remaining" : "estimated status"}
-                                                    </p>
-                                                </div>
-                                                <p className="text-right text-[10px] leading-4 text-[#697580]">
-                                                    {muscle.setCount} {muscle.setCount === 1 ? "set" : "sets"}
-                                                    <br />
-                                                    {muscle.recoveryHours}h estimate
-                                                </p>
-                                            </div>
-
-                                            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#0F1316]">
-                                                <div
-                                                    className="h-full rounded-full bg-[#2DDE85] transition-all"
-                                                    style={{width:`${muscle.recoveryPercent}%`}}
-                                                />
-                                            </div>
-
-                                            <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#252C33] pt-3">
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-[11px] font-semibold text-[#AAB5AF]">{muscle.workoutName}</p>
-                                                    <p className="mt-0.5 text-[10px] text-[#66717B]">{formatWorkoutDate(muscle.trainedAt)}</p>
-                                                </div>
-                                                <ArrowRight size={14} className="shrink-0 text-[#56616B] transition group-hover:translate-x-0.5 group-hover:text-[#2DDE85]" />
-                                            </div>
-                                        </button>
-                                    )
-                                })}
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                {recovery.muscleRecovery.map((muscle) => (
+                                    <div
+                                        key={muscle.muscle}
+                                        className="rounded-xl border border-[#2A3138] bg-[#171B1F] px-3 py-2.5"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="truncate text-xs font-bold text-white">{muscle.muscle}</p>
+                                            <p className="shrink-0 text-xs font-semibold text-[#94A3B8]">
+                                                {muscle.remainingHours}h left
+                                            </p>
+                                        </div>
+                                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#0F1316]">
+                                            <div
+                                                className="h-full rounded-full bg-[#2DDE85] transition-all"
+                                                style={{width:`${muscle.recoveryPercent}%`}}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
-                            <div className="mt-4 rounded-[18px] border border-dashed border-[#313A45] bg-[#171B1F] p-5 text-center">
-                                <Clock3 size={20} className="mx-auto text-[#2DDE85]" />
-                                <h3 className="mt-2 text-sm font-bold text-white">Recovery starts with your next logged set</h3>
-                                <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-[#7E8994]">
-                                    Complete a workout with logged sets and Endurra will estimate readiness by muscle group here.
+                            <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-[#313A45] bg-[#171B1F] px-3 py-3">
+                                <Clock3 size={16} className="shrink-0 text-[#2DDE85]" />
+                                <p className="text-xs text-[#7E8994]">
+                                    Log workout sets to see muscle recovery estimates.
                                 </p>
-                                <button
-                                    type="button"
-                                    onClick={() => navigate("/workoutDash")}
-                                    className="mt-3 rounded-xl bg-[#2DDE85] px-3.5 py-2 text-xs font-bold text-black transition hover:bg-[#25C876]"
-                                >
-                                    Open workout tracker
-                                </button>
                             </div>
                         )}
                     </section>

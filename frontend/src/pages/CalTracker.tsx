@@ -12,6 +12,7 @@ import {
     X
 } from "lucide-react"
 import Navbar from "../components/Navbar"
+import UpgradeLimitModal from "../components/UpgradeLimitModal"
 import { BASEURL, apiFetch } from "../URL"
 import { getLocalDateKey, notifyStreaksUpdated } from "../streaks"
 
@@ -86,6 +87,7 @@ function CalorieTracker() {
     const [savingFoodKey, setSavingFoodKey] = useState<string | null>(null)
     const [savedFoodsLoading, setSavedFoodsLoading] = useState(false)
     const [savedFoodError, setSavedFoodError] = useState("")
+    const [showLimitModal, setShowLimitModal] = useState(false)
 
     const formatServing = (food?: Food) => {
         if (!food) {
@@ -429,6 +431,13 @@ function CalorieTracker() {
                 const data = await response.json()
 
                 if (!response.ok) {
+                    if (data.code === "FREE_CALORIE_LIMIT_REACHED") {
+                        closeFoodModal()
+                        setShowLimitModal(true)
+
+                        return
+                    }
+
                     setFoodAddError(data.message || "Could not create today's food log.")
 
                     return
@@ -995,6 +1004,12 @@ function CalorieTracker() {
                     </div>
                 </div>
             )}
+
+            <UpgradeLimitModal
+                open={showLimitModal}
+                limitType="calorieDays"
+                onClose={() => setShowLimitModal(false)}
+            />
         </div>
     )
 }

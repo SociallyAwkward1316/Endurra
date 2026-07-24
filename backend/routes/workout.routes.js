@@ -1,12 +1,13 @@
 import express from "express"
 import { addExerciseToWorkout, addSet, createExercise, createUserWorkout, delExerciseFromWorkout, delSet, delWorkout, exerciseList, getMuscleRecovery, getUserWorkouts, getWorkoutInfo } from "../controllers/workout.controller.js"
+import { enforceWorkoutLimit } from "../middleware/freeTrackingLimits.js"
 import proOnly from "../middleware/proOnly.js"
 
 const router = express.Router()
 
 router.get("/workout-dash", getUserWorkouts)
 router.get("/recovery", proOnly, getMuscleRecovery)
-router.post("/create-workout", createUserWorkout)
+router.post("/create-workout", enforceWorkoutLimit, createUserWorkout)
 router.delete("/deleteWorkout/:workoutId", delWorkout)
 
 router.get("/exerciseList", exerciseList)

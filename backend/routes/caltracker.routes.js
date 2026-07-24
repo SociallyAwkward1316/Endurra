@@ -1,11 +1,12 @@
 import express from "express"
 import { addFoodToLog, createLog, createNutritionProfile, fetchLog, fetchSavedFoods, grabNutritionProfile, removeFoodFromLog, removeSavedFood, saveFood, searchFoodByBarcode, searchForFood } from "../controllers/caltracker.controller.js"
+import { enforceCalorieDayLimit } from "../middleware/freeTrackingLimits.js"
 
 const router = express.Router()
 
 router.post("/createNutritionProfile", createNutritionProfile)
 router.get("/getNutritionProfile", grabNutritionProfile)
-router.post("/createUserLog", createLog)
+router.post("/createUserLog", enforceCalorieDayLimit, createLog)
 router.get("/getDailyLog/:date", fetchLog)
 
 router.get("/foodsearch/search", searchForFood)
