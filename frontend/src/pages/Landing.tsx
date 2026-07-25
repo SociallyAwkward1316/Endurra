@@ -2,11 +2,17 @@ import {
     Activity,
     Apple,
     ArrowRight,
+    Camera,
     ChartNoAxesCombined,
     Check,
+    ChevronLeft,
+    ChevronRight,
     Crown,
     Dumbbell,
     Flame,
+    Plus,
+    ScanLine,
+    Search,
     Target,
     Trophy
 } from "lucide-react"
@@ -70,6 +76,7 @@ function Landing() {
 
                     <div className="hidden items-center gap-7 text-sm font-semibold text-[#8D98A3] md:flex">
                         <a href="#features" className="transition hover:text-white">Features</a>
+                        <a href="#nutrition" className="transition hover:text-white">Nutrition</a>
                         <a href="#principles" className="transition hover:text-white">Why Endurra</a>
                         <a href="#pricing" className="transition hover:text-white">Plans</a>
                     </div>
@@ -282,6 +289,188 @@ function Landing() {
                                 title="See what is changing"
                                 description="Review monthly trends, personal records, streaks, and the training history behind the numbers."
                             />
+                        </div>
+                    </div>
+                </section>
+
+                <section id="nutrition" className="relative scroll-mt-20 overflow-hidden border-b border-white/[0.06] px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+                    <div className="pointer-events-none absolute -right-40 top-20 h-[520px] w-[520px] rounded-full bg-[#2DDE85]/[0.07] blur-[120px]" />
+                    <div className="relative mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-center lg:gap-16">
+                        <div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2DDE85]/25 bg-[#2DDE85]/10 px-3 py-1.5 text-xs font-bold text-[#77EBA9]">
+                                <Apple size={14} />
+                                Calorie tracking, made faster
+                            </div>
+
+                            <h2 className="mt-5 text-3xl font-black tracking-[-0.035em] text-white sm:text-5xl">
+                                See the whole day.
+                                <span className="block text-[#2DDE85]">Log food your way.</span>
+                            </h2>
+
+                            <p className="mt-5 max-w-xl text-base leading-7 text-[#8D98A3]">
+                                Calories, protein, carbs, and fat stay visible in one focused daily view. Search normally, scan a package, or use a meal photo to move from food to useful numbers faster.
+                            </p>
+
+                            <div className="mt-7 space-y-3">
+                                <article className="flex gap-4 rounded-[22px] border border-[#2A323A] bg-[#171C21] p-4">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2DDE85]/10 text-[#2DDE85]">
+                                        <ScanLine size={21} />
+                                    </span>
+                                    <div>
+                                        <h3 className="font-bold text-white">Scan the barcode</h3>
+                                        <p className="mt-1 text-sm leading-6 text-[#7F8A94]">
+                                            Point your phone at a UPC or EAN barcode to find serving information and macros without typing the product name.
+                                        </p>
+                                    </div>
+                                </article>
+
+                                <article className="flex gap-4 rounded-[22px] border border-[#2DDE85]/25 bg-[#19231E] p-4 shadow-lg shadow-[#2DDE85]/[0.04]">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#2DDE85] text-[#07150D]">
+                                        <Camera size={21} />
+                                    </span>
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="font-bold text-white">AI meal-photo estimate</h3>
+                                            <span className="rounded-full bg-[#2DDE85]/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#77EBA9]">AI assisted</span>
+                                        </div>
+                                        <p className="mt-1 text-sm leading-6 text-[#91A098]">
+                                            Take a food photo to estimate calories and macros, review the portion, then add the result to your day.
+                                        </p>
+                                    </div>
+                                </article>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => navigate("/signup")}
+                                className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-[#2DDE85] transition hover:text-[#77EBA9]"
+                            >
+                                Start tracking nutrition
+                                <ArrowRight size={16} />
+                            </button>
+                        </div>
+
+                        <div className="relative mx-auto w-full max-w-3xl">
+                            <div className="absolute -inset-6 rounded-[42px] bg-[#2DDE85]/[0.06] blur-3xl" />
+                            <div className="relative overflow-hidden rounded-[30px] border border-[#303941] bg-[#171B1F] p-2.5 shadow-2xl shadow-black/50 sm:p-4">
+                                <div className="rounded-[22px] border border-[#293139] bg-[#1E242B] p-4 sm:p-5">
+                                    <div className="flex flex-col gap-4 border-b border-[#2B333B] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2DDE85]">
+                                                <Apple size={12} />
+                                                Daily nutrition
+                                            </p>
+                                            <h3 className="mt-1.5 text-xl font-black text-white">Calorie Tracker</h3>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center rounded-xl border border-[#313A45] bg-[#171B1F] p-1">
+                                                <span className="rounded-lg p-1.5 text-[#6F7B85]"><ChevronLeft size={14} /></span>
+                                                <span className="px-2 text-[11px] font-semibold text-white">Today</span>
+                                                <span className="rounded-lg p-1.5 text-[#6F7B85]"><ChevronRight size={14} /></span>
+                                            </div>
+                                            <span className="flex items-center gap-1.5 rounded-xl bg-[#2DDE85] px-3 py-2 text-[11px] font-bold text-[#07150D]">
+                                                <Plus size={13} />
+                                                Add food
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 grid gap-3 sm:grid-cols-[0.9fr_1.1fr]">
+                                        <div className="rounded-[18px] border border-[#2A323A] bg-[#171B1F] p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <p className="text-[11px] font-medium text-[#84909A]">Calories remaining</p>
+                                                    <p className="mt-2 text-3xl font-black tracking-tight text-white">480 <span className="text-xs font-medium text-[#69747E]">cal</span></p>
+                                                </div>
+                                                <span className="rounded-full bg-[#2DDE85]/10 px-2 py-1 text-[10px] font-bold text-[#2DDE85]">79%</span>
+                                            </div>
+                                            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#272E35]">
+                                                <div className="h-full w-[79%] rounded-full bg-[#2DDE85]" />
+                                            </div>
+                                            <div className="mt-2.5 flex justify-between text-[10px] text-[#65717B]">
+                                                <span>1,820 eaten</span>
+                                                <span className="font-semibold text-white">2,300 goal</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                ["Protein", "168g", "88%"],
+                                                ["Carbs", "194g", "75%"],
+                                                ["Fat", "58g", "83%"]
+                                            ].map(([label, value, progress]) => (
+                                                <div key={label} className="rounded-[16px] border border-[#2A323A] bg-[#171B1F] p-3">
+                                                    <p className="text-[9px] font-medium text-[#7B8791] sm:text-[10px]">{label}</p>
+                                                    <p className="mt-2 text-base font-black text-white sm:text-lg">{value}</p>
+                                                    <div className="mt-3 h-1 overflow-hidden rounded-full bg-[#272E35]">
+                                                        <div className="h-full rounded-full bg-[#2DDE85]" style={{width:progress}} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                        <div className="rounded-[18px] border border-[#2A323A] bg-[#171B1F] p-3.5">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2DDE85]/10 text-[#2DDE85]">
+                                                        <ScanLine size={17} />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-xs font-bold text-white">Greek yogurt</p>
+                                                        <p className="mt-0.5 text-[10px] text-[#66727C]">Barcode matched · 1 cup</p>
+                                                    </div>
+                                                </div>
+                                                <p className="shrink-0 text-xs font-bold text-white">140 cal</p>
+                                            </div>
+                                            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                                {["20g P", "9g C", "0g F"].map((macro) => (
+                                                    <span key={macro} className="rounded-lg bg-[#20262C] px-1.5 py-1.5 text-[9px] font-semibold text-[#9AA5AE]">{macro}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-[18px] border border-[#2DDE85]/20 bg-[#19231E] p-3.5">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2DDE85] text-[#07150D]">
+                                                        <Camera size={17} />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="truncate text-xs font-bold text-white">Chicken rice bowl</p>
+                                                        <p className="mt-0.5 text-[10px] text-[#75847B]">AI photo estimate · reviewed</p>
+                                                    </div>
+                                                </div>
+                                                <p className="shrink-0 text-xs font-bold text-white">620 cal</p>
+                                            </div>
+                                            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                                                {["48g P", "72g C", "16g F"].map((macro) => (
+                                                    <span key={macro} className="rounded-lg bg-[#2DDE85]/[0.08] px-1.5 py-1.5 text-[9px] font-semibold text-[#A8DABA]">{macro}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 flex flex-col gap-2 rounded-[16px] border border-[#2A323A] bg-[#171B1F] p-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-center gap-2 text-[11px] text-[#84909A]">
+                                            <Search size={14} className="text-[#2DDE85]" />
+                                            Search foods or choose a faster way to log
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#303941] px-2.5 py-1.5 text-[10px] font-bold text-[#C4CDD5] sm:flex-none">
+                                                <ScanLine size={12} />
+                                                Scan
+                                            </span>
+                                            <span className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#2DDE85] px-2.5 py-1.5 text-[10px] font-bold text-[#07150D] sm:flex-none">
+                                                <Camera size={12} />
+                                                Meal photo
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
