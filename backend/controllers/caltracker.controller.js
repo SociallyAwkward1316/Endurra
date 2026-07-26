@@ -1,4 +1,5 @@
 import { deleteFoodEntry, deleteSavedFood, getFood, getLog, getLogById, getNutritionProfile, getSavedFood, getSavedFoods, postFoodEntry, postFoodtoDb, postNutritionProfile, postSavedFood, postUserDailyLog } from "../services/caltracker.services.js"
+import { confirmFoodImageAnalysis } from "../services/foodImage.services.js"
 import { findFatSecretFoodByBarcode, searchFatSecretFoods } from "../utils/fatsecret.utils.js"
 import { updateUserStreak } from "../services/streak.services.js"
 
@@ -280,7 +281,8 @@ export const searchForFood = async (req, res) => {
     }
 
     const apiFood = await getFood(foodSearch)
-    const localFoods = apiFood.data ?? []
+    const localFoods = (apiFood.data ?? [])
+        .filter((food) => food.brand_name !== "Endurra AI estimate")
 
     let fatSecretFoods = []
 
@@ -353,6 +355,7 @@ export const addFoodToLog = async (req, res) => {
     let foodId = req.body.foodId
     const food = req.body.food
     const servings = Number(req.body.servings || 1)
+    const analysisId = Number(req.body.analysisId)
     const dailyLog = await getLogById(req.user.userId, logId)
 
     if (dailyLog.error || !dailyLog.data) {
@@ -392,6 +395,24 @@ export const addFoodToLog = async (req, res) => {
     if (foodEntry.error) {
         console.error("Could not add food entry", foodEntry.error)
         return res.status(500).json({message:"Could not add food to log"})
+    }
+
+    if (Number.isInteger(analysisId) && analysisId > 0) {
+        const confirmedAnalysis = await confirmFoodImageAnalysis({
+            userId:req.user.userId,
+            analysisId,
+            logId,
+            foodEntryId:foodEntry.data.id,
+            food:foodEntry.data.Food,
+            servings
+        })
+
+        if (confirmedAnalysis.error) {
+            console.error("Could not link the confirmed meal estimate", {
+                code:confirmedAnalysis.error.code || null,
+                message:confirmedAnalysis.error.message
+            })
+        }
     }
 
     const streak = await updateUserStreak(req.user.userId, "calorie", dailyLog.data.log_date)

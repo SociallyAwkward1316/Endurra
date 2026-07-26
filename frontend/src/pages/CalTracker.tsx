@@ -3,8 +3,10 @@ import {
     Bookmark,
     BookmarkCheck,
     CalendarDays,
+    Camera,
     ChevronLeft,
     ChevronRight,
+    Crown,
     Plus,
     ScanLine,
     Search,
@@ -12,6 +14,7 @@ import {
     X
 } from "lucide-react"
 import Navbar from "../components/Navbar"
+import FoodImageAnalyzer, { type FoodImageAnalysis, type FoodImageResult } from "../components/FoodImageAnalyzer"
 import UpgradeLimitModal from "../components/UpgradeLimitModal"
 import { BASEURL, apiFetch } from "../URL"
 import { getLocalDateKey, notifyStreaksUpdated } from "../streaks"
@@ -32,6 +35,8 @@ type Food = NutritionTotals & {
     brand_name?: string | null
     serving_size?: number | null
     serving_unit?: string | null
+    source?: "ai_image"
+    analysis_id?: number
 }
 
 type FoodEntry = {
@@ -53,6 +58,14 @@ type MacroCard = {
 }
 
 type FoodTab = "search" | "saved"
+type UpgradeReason = "calorieDays" | "aiFood"
+
+const aiMacroFields: Array<{key: keyof NutritionTotals, label: string, unit: string}> = [
+    {key:"calories", label:"Calories", unit:"cal"},
+    {key:"protein", label:"Protein", unit:"g"},
+    {key:"carbs", label:"Carbs", unit:"g"},
+    {key:"fats", label:"Fat", unit:"g"}
+]
 
 const fromLocalDateKey = (date: string) => {
     const [year, month, day] = date.split("-").map(Number)
@@ -88,6 +101,10 @@ function CalorieTracker() {
     const [savedFoodsLoading, setSavedFoodsLoading] = useState(false)
     const [savedFoodError, setSavedFoodError] = useState("")
     const [showLimitModal, setShowLimitModal] = useState(false)
+    const [upgradeReason, setUpgradeReason] = useState<UpgradeReason>("calorieDays")
+    const [isPro, setIsPro] = useState(false)
+    const [showFoodImageAnalyzer, setShowFoodImageAnalyzer] = useState(false)
+    const [foodImageAnalysis, setFoodImageAnalysis] = useState<FoodImageAnalysis | null>(null)
 
     const formatServing = (food?: Food) => {
         if (!food) {
@@ -199,6 +216,34 @@ function CalorieTracker() {
     }, [selectedDate, fetchLog])
 
     useEffect(() => {
+        let active = true
+
+        const loadMembership = async () => {
+            try {
+                const response = await apiFetch(`${BASEURL}/auth/session`, {
+                    method:"GET",
+                    headers:{"Content-Type":"application/json"}
+                })
+                const data = await response.json()
+
+                if (active && response.ok) {
+                    setIsPro(data.isPro === true)
+                }
+            } catch {
+                if (active) {
+                    setIsPro(false)
+                }
+            }
+        }
+
+        loadMembership()
+
+        return () => {
+            active = false
+        }
+    }, [])
+
+    useEffect(() => {
         const timeout = setTimeout(async () => {
             if (!foodSearch.trim()) {
                 setFoodResults([])
@@ -288,8 +333,10 @@ function CalorieTracker() {
     const closeFoodModal = () => {
         setShowFoodModal(false)
         setShowBarcodeScanner(false)
+        setShowFoodImageAnalyzer(false)
         setLookingUpBarcode(false)
         setSelectedFood(null)
+        setFoodImageAnalysis(null)
         setServings("1")
         setFoodAddError("")
         setBarcodeLookupError("")
@@ -298,8 +345,10 @@ function CalorieTracker() {
     const openFoodModal = () => {
         setShowFoodModal(true)
         setShowBarcodeScanner(false)
+        setShowFoodImageAnalyzer(false)
         setLookingUpBarcode(false)
         setSelectedFood(null)
+        setFoodImageAnalysis(null)
         setServings("1")
         setFoodAddError("")
         setBarcodeLookupError("")
@@ -332,6 +381,7 @@ function CalorieTracker() {
 
             setFoodResults([data.food])
             setSelectedFood(data.food)
+            setFoodImageAnalysis(null)
         } catch {
             setBarcodeLookupError("Could not look up that barcode. Please try again.")
         } finally {
@@ -341,8 +391,59 @@ function CalorieTracker() {
 
     const handleFoodClick = (food: Food) => {
         setSelectedFood(food)
+        setFoodImageAnalysis(null)
         setServings("1")
         setFoodAddError("")
+    }
+
+    const openFoodImageAnalyzer = () => {
+        if (!isPro) {
+            closeFoodModal()
+            setUpgradeReason("aiFood")
+            setShowLimitModal(true)
+
+            return
+        }
+
+        setShowBarcodeScanner(false)
+        setSelectedFood(null)
+        setFoodImageAnalysis(null)
+        setFoodAddError("")
+        setShowFoodImageAnalyzer(true)
+    }
+
+    const handleFoodImageAnalyzed = (result: FoodImageResult) => {
+        setShowFoodImageAnalyzer(false)
+        setFoodImageAnalysis(result.analysis)
+        setSelectedFood(result.food)
+        setServings("1")
+        setFoodAddError("")
+    }
+
+    const handleFoodImageUpgradeRequired = () => {
+        closeFoodModal()
+        setIsPro(false)
+        setUpgradeReason("aiFood")
+        setShowLimitModal(true)
+    }
+
+    const updateAiFoodName = (name: string) => {
+        setSelectedFood((currentFood) => currentFood
+            ? {...currentFood, name:name.slice(0, 100)}
+            : currentFood
+        )
+    }
+
+    const updateAiFoodMacro = (key: keyof NutritionTotals, value: string) => {
+        const number = Number(value)
+
+        setSelectedFood((currentFood) => currentFood
+            ? {
+                ...currentFood,
+                [key]:Number.isFinite(number) ? Math.max(number, 0) : 0
+            }
+            : currentFood
+        )
     }
 
     const handleToggleSavedFood = async (food: Food) => {
@@ -410,6 +511,19 @@ function CalorieTracker() {
             return
         }
 
+        if (
+            selectedFood.source === "ai_image" &&
+            (
+                !selectedFood.name.trim() ||
+                aiMacroFields.some(({key}) =>
+                    !Number.isFinite(Number(selectedFood[key])) || Number(selectedFood[key]) < 0
+                )
+            )
+        ) {
+            setFoodAddError("Review the meal name and macro values before adding it.")
+            return
+        }
+
         setAddingFood(true)
 
         try {
@@ -433,6 +547,7 @@ function CalorieTracker() {
                 if (!response.ok) {
                     if (data.code === "FREE_CALORIE_LIMIT_REACHED") {
                         closeFoodModal()
+                        setUpgradeReason("calorieDays")
                         setShowLimitModal(true)
 
                         return
@@ -457,7 +572,8 @@ function CalorieTracker() {
                         foodId:selectedFood.id,
                         food:selectedFood,
                         logId,
-                        servings:servingAmount
+                        servings:servingAmount,
+                        analysisId:selectedFood.analysis_id
                     })
                 }
             )
@@ -809,7 +925,7 @@ function CalorieTracker() {
                         </div>
 
                         <div className="p-6">
-                            {!selectedFood && !showBarcodeScanner && (
+                            {!selectedFood && !showBarcodeScanner && !showFoodImageAnalyzer && (
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 rounded-2xl bg-[#171B1F] p-1">
                                         <button
@@ -864,6 +980,28 @@ function CalorieTracker() {
                                         Scan barcode
                                     </button>}
 
+                                    {foodTab === "search" && (
+                                        <button
+                                            type="button"
+                                            onClick={openFoodImageAnalyzer}
+                                            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#2DDE85]/25 bg-[#19231E] px-4 py-3 text-left transition hover:border-[#2DDE85]/60 hover:bg-[#1C2A22]"
+                                        >
+                                            <span className="flex items-center gap-3">
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2DDE85] text-black">
+                                                    <Camera size={18} />
+                                                </span>
+                                                <span>
+                                                    <span className="block text-sm font-bold text-white">Analyze meal photo</span>
+                                                    <span className="mt-0.5 block text-[11px] text-[#7C8C82]">Get an editable calorie and macro estimate</span>
+                                                </span>
+                                            </span>
+                                            <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                                                <Crown size={11} />
+                                                Pro
+                                            </span>
+                                        </button>
+                                    )}
+
                                     {foodTab === "search" && barcodeLookupError && (
                                         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-300 md:hidden">
                                             {barcodeLookupError}
@@ -879,7 +1017,13 @@ function CalorieTracker() {
                             )}
 
                             <div className="mt-5 max-h-[430px] overflow-y-auto pr-1">
-                                {showBarcodeScanner ? (
+                                {showFoodImageAnalyzer ? (
+                                    <FoodImageAnalyzer
+                                        onCancel={() => setShowFoodImageAnalyzer(false)}
+                                        onAnalyzed={handleFoodImageAnalyzed}
+                                        onUpgradeRequired={handleFoodImageUpgradeRequired}
+                                    />
+                                ) : showBarcodeScanner ? (
                                     <Suspense fallback={(
                                         <div className="flex min-h-80 items-center justify-center text-sm text-[#94A3B8]">
                                             Starting camera...
@@ -899,27 +1043,104 @@ function CalorieTracker() {
                                 ) : selectedFood ? (
                                     <div className="space-y-5">
                                         <button
-                                            onClick={() => setSelectedFood(null)}
+                                            onClick={() => {
+                                                setSelectedFood(null)
+                                                setFoodImageAnalysis(null)
+                                                setFoodAddError("")
+                                            }}
                                             className="inline-flex items-center gap-2 text-sm font-medium text-[#94A3B8] transition hover:text-white"
                                         >
                                             <ChevronLeft size={16} />
-                                            Back to results
+                                            {selectedFood.source === "ai_image" ? "Back to food options" : "Back to results"}
                                         </button>
 
                                         <div className="rounded-2xl border border-[#313A45] bg-[#171B1F] p-5">
-                                            <h3 className="text-xl font-semibold text-white">
-                                                {selectedFood.name}
-                                            </h3>
+                                            {selectedFood.source === "ai_image" ? (
+                                                <>
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2DDE85]/20 bg-[#2DDE85]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#77EBA9]">
+                                                            <Camera size={12} />
+                                                            AI meal estimate
+                                                        </span>
+                                                        {foodImageAnalysis && (
+                                                            <span className="text-xs font-semibold text-[#7F8A94]">
+                                                                {Math.round(foodImageAnalysis.confidence * 100)}% confidence
+                                                            </span>
+                                                        )}
+                                                    </div>
 
-                                            {selectedFood.brand_name && (
-                                                <p className="mt-1 text-sm text-[#6B7280]">
-                                                    {selectedFood.brand_name}
-                                                </p>
+                                                    <label className="mt-4 block text-sm font-medium text-[#CBD5E1]">
+                                                        Meal name
+                                                    </label>
+                                                    <input
+                                                        value={selectedFood.name}
+                                                        onChange={(event) => updateAiFoodName(event.target.value)}
+                                                        maxLength={100}
+                                                        className="mt-2 w-full rounded-2xl border border-[#313A45] bg-[#1E242B] px-4 py-3 font-semibold text-white outline-none transition focus:border-[#2DDE85]"
+                                                    />
+
+                                                    {foodImageAnalysis && (
+                                                        <div className="mt-4 rounded-2xl border border-[#2A3138] bg-[#1E242B] p-4">
+                                                            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#71808A]">Detected food</p>
+                                                            <div className="mt-3 space-y-2.5">
+                                                                {foodImageAnalysis.items.map((item, index) => (
+                                                                    <div key={`${item.name}-${index}`} className="flex items-start justify-between gap-3 text-sm">
+                                                                        <div>
+                                                                            <p className="font-semibold text-white">{item.name}</p>
+                                                                            <p className="mt-0.5 text-xs text-[#6B7280]">{item.portion}</p>
+                                                                        </div>
+                                                                        <span className="shrink-0 text-xs font-semibold text-[#A7B1BA]">{Math.round(item.calories)} cal</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {foodImageAnalysis?.reviewReason && (
+                                                        <p className="mt-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/80">
+                                                            Check this estimate: {foodImageAnalysis.reviewReason}
+                                                        </p>
+                                                    )}
+
+                                                    <div className="mt-5">
+                                                        <p className="text-sm font-medium text-[#CBD5E1]">Edit the estimated macros</p>
+                                                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                                            {aiMacroFields.map(({key, label, unit}) => (
+                                                                <label key={key} className="rounded-xl border border-[#2A3138] bg-[#1E242B] p-3">
+                                                                    <span className="block text-[10px] font-medium text-[#71808A]">{label}</span>
+                                                                    <span className="mt-1 flex items-center gap-1">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            step={key === "calories" ? "1" : "0.1"}
+                                                                            value={selectedFood[key]}
+                                                                            onChange={(event) => updateAiFoodMacro(key, event.target.value)}
+                                                                            className="min-w-0 flex-1 bg-transparent text-base font-bold text-white outline-none"
+                                                                        />
+                                                                        <span className="text-[10px] text-[#5F6A74]">{unit}</span>
+                                                                    </span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <h3 className="text-xl font-semibold text-white">
+                                                        {selectedFood.name}
+                                                    </h3>
+
+                                                    {selectedFood.brand_name && (
+                                                        <p className="mt-1 text-sm text-[#6B7280]">
+                                                            {selectedFood.brand_name}
+                                                        </p>
+                                                    )}
+                                                </>
                                             )}
 
                                             <div className="mt-5 rounded-2xl bg-[#1E242B] p-4">
                                                 <p className="text-sm font-medium text-[#94A3B8]">
-                                                    Serving unit
+                                                    {selectedFood.source === "ai_image" ? "Estimated serving" : "Serving unit"}
                                                 </p>
                                                 <p className="mt-1 text-lg font-semibold text-white">
                                                     1 serving = {formatServing(selectedFood)}
@@ -927,7 +1148,7 @@ function CalorieTracker() {
                                             </div>
 
                                             <label className="mt-5 block text-sm font-medium text-[#CBD5E1]">
-                                                Number of servings
+                                                {selectedFood.source === "ai_image" ? "How much of this meal?" : "Number of servings"}
                                             </label>
 
                                             <input
@@ -970,7 +1191,12 @@ function CalorieTracker() {
                                             disabled={addingFood || !Number.isFinite(Number(servings)) || Number(servings) <= 0}
                                             className="w-full rounded-2xl bg-[#2DDE85] py-3 font-semibold text-black shadow-lg shadow-[#2DDE85]/20 transition hover:bg-[#25C876] disabled:cursor-not-allowed disabled:bg-[#334155] disabled:text-[#94A3B8]"
                                         >
-                                            {addingFood ? "Adding..." : "Add Food"}
+                                            {addingFood
+                                                ? "Adding..."
+                                                : selectedFood.source === "ai_image"
+                                                    ? "Add estimated meal"
+                                                    : "Add Food"
+                                            }
                                         </button>
                                     </div>
                                 ) : foodTab === "saved" ? (
@@ -1007,7 +1233,7 @@ function CalorieTracker() {
 
             <UpgradeLimitModal
                 open={showLimitModal}
-                limitType="calorieDays"
+                limitType={upgradeReason}
                 onClose={() => setShowLimitModal(false)}
             />
         </div>

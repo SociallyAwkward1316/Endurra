@@ -4,7 +4,7 @@ import { BASEURL, apiFetch } from "../URL"
 
 type UpgradeLimitModalProps = {
     open: boolean
-    limitType: "workouts" | "calorieDays"
+    limitType: "workouts" | "calorieDays" | "aiFood"
     onClose: () => void
 }
 
@@ -18,6 +18,11 @@ const limitCopy = {
         eyebrow:"Nutrition limit reached",
         title:"You used all 15 free tracking days",
         description:"Keep logging meals and macros every day with unlimited nutrition tracking."
+    },
+    aiFood:{
+        eyebrow:"Endurra Pro feature",
+        title:"Log a meal from one photo",
+        description:"Get an editable AI estimate of the food, portions, calories, and macros visible in your meal."
     }
 }
 
@@ -25,7 +30,7 @@ const proFeatures = [
     "Unlimited workout and calorie tracking",
     "Muscle recovery estimates",
     "AI strength trends and workout reviews",
-    "Weekly coaching, macro analysis, and meal ideas"
+    "AI meal-photo estimates and macro meal ideas"
 ]
 
 function UpgradeLimitModal({open, limitType, onClose}: UpgradeLimitModalProps) {
