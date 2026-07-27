@@ -170,6 +170,9 @@ function Dashboard () {
 
     const isPro = user?.is_pro === true
     const latestWorkout = workouts[0]
+    const recoveringMuscles = recovery?.muscleRecovery.filter(
+        (muscle) => muscle.remainingHours > 0 && muscle.recoveryPercent < 100
+    ) || []
     const goalName = nutritionProfile?.goal_selection
         ? nutritionProfile.goal_selection.charAt(0).toUpperCase() + nutritionProfile.goal_selection.slice(1)
         : "Set profile"
@@ -249,9 +252,9 @@ function Dashboard () {
                                     Try again
                                 </button>
                             </div>
-                        ) : recovery?.muscleRecovery.length ? (
+                        ) : recoveringMuscles.length ? (
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                {recovery.muscleRecovery.map((muscle) => (
+                                {recoveringMuscles.map((muscle) => (
                                     <div
                                         key={muscle.muscle}
                                         className="rounded-xl border border-[#2A3138] bg-[#171B1F] px-3 py-2.5"
@@ -270,6 +273,13 @@ function Dashboard () {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        ) : recovery?.muscleRecovery.length ? (
+                            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#2DDE85]/15 bg-[#2DDE85]/[0.05] px-3 py-3">
+                                <Clock3 size={16} className="shrink-0 text-[#2DDE85]" />
+                                <p className="text-xs text-[#8EAA99]">
+                                    All recently trained muscle groups are recovered.
+                                </p>
                             </div>
                         ) : (
                             <div className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-[#313A45] bg-[#171B1F] px-3 py-3">
