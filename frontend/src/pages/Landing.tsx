@@ -17,6 +17,7 @@ import {
     Trophy
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { useAuthenticatedRedirect } from "../hooks/useAuthenticatedRedirect"
 
 type FeatureCardProps = {
     icon: React.ComponentType<{size?: number, className?: string}>
@@ -54,6 +55,25 @@ function FeatureCard({icon:Icon, eyebrow, title, description}: FeatureCardProps)
 
 function Landing() {
     const navigate = useNavigate()
+    const isCheckingSession = useAuthenticatedRedirect()
+
+    if (isCheckingSession) {
+        return (
+            <div
+                className="flex min-h-screen items-center justify-center bg-[#111418]"
+                aria-label="Restoring your Endurra session"
+            >
+                <div className="flex flex-col items-center gap-4">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#2DDE85]/25 bg-[#2DDE85]/10 text-[#2DDE85]">
+                        <Dumbbell size={23} />
+                    </span>
+                    <span className="h-1 w-24 overflow-hidden rounded-full bg-[#252D34]">
+                        <span className="block h-full w-1/2 animate-pulse rounded-full bg-[#2DDE85]" />
+                    </span>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen overflow-hidden bg-[#111418] text-[#F8FAFC]">

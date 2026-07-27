@@ -1,9 +1,10 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { BASEURL } from "../URL"
 
 export const useAuthenticatedRedirect = () => {
     const navigate = useNavigate()
+    const [isCheckingSession, setIsCheckingSession] = useState(true)
 
     useEffect(() => {
         const controller = new AbortController()
@@ -19,10 +20,15 @@ export const useAuthenticatedRedirect = () => {
 
                 if (response.ok) {
                     navigate("/dashboard", { replace: true })
+
+                    return
                 }
+
+                setIsCheckingSession(false)
             } catch (error) {
                 if (!(error instanceof DOMException && error.name === "AbortError")) {
                     // A network failure should not prevent the auth form from being used.
+                    setIsCheckingSession(false)
                 }
             }
         }
@@ -31,4 +37,6 @@ export const useAuthenticatedRedirect = () => {
 
         return () => controller.abort()
     }, [navigate])
+
+    return isCheckingSession
 }
