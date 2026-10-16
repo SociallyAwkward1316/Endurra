@@ -8,6 +8,7 @@ import ProfileRouter from "./routes/profile.routes.js"
 import StreakRouter from "./routes/streak.routes.js"
 import CoachRouter from "./routes/coach.routes.js"
 import BillingRouter from "./routes/billing.routes.js"
+import ApiHealthRouter from "./routes/apihealth.routes.js"
 import { stripeWebhookController } from "./controllers/billing.controller.js"
 import errorhandler from "./middleware/errorhandler.js"
 import cookieParser from "cookie-parser"
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use(cookieParser())
 app.use(cors(corsOptions))
 
+app.use("/apihealth", ApiHealthRouter)
 app.use("/auth", AuthRouter)
 app.use("/workout", tokenAuthentication ,WorkoutRouter)
 app.use("/caltracker", tokenAuthentication, CalTrackerRouter)
